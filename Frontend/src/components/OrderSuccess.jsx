@@ -126,7 +126,7 @@ const OrderSuccess = () => {
                 <b>Payment Status:</b>
                 {(() => {
                   // Updated logic for cash on delivery
-                  if (payment.paymentMethod === 'cash') {
+                  if (payment.method === 'cash') {
                     return <span style={{ color: '#b8860b' }}> Cash on Delivery (Unpaid)</span>;
                   } else if (payment.success) {
                     return <span style={{ color: 'green' }}> ✅ Paid</span>;

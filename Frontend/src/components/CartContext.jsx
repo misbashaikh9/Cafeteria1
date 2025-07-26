@@ -14,7 +14,7 @@ export const CartProvider = ({ children }) => {
     // Clean up cart items to ensure they have correct structure
     return parsedCart.map(item => ({
       ...item,
-      id: item.id || item._id,
+      _id: item._id,
       price: Number(item.price) || 0,
       quantity: Number(item.quantity) || 1
     }));
@@ -29,7 +29,7 @@ export const CartProvider = ({ children }) => {
       const parsedCart = JSON.parse(stored);
       const cleanCart = parsedCart.map(item => ({
         ...item,
-        id: item.id || item._id,
+        _id: item._id,
         price: Number(item.price) || 0,
         quantity: Number(item.quantity) || 1
       }));
@@ -43,7 +43,7 @@ export const CartProvider = ({ children }) => {
     // Clean cart data before saving
     const cleanCart = cart.map(item => ({
       ...item,
-      id: item.id || item._id,
+      _id: item._id,
       price: Number(item.price) || 0,
       quantity: Number(item.quantity) || 1
     }));
@@ -71,10 +71,10 @@ export const CartProvider = ({ children }) => {
   const addToCart = (product) => {
     console.log('[CartContext] Adding product to cart:', product);
     setCart((prevCart) => {
-      const existing = prevCart.find(item => item.id === product.id);
+      const existing = prevCart.find(item => item._id === product._id);
       if (existing) {
         const newCart = prevCart.map(item =>
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+          item._id === product._id ? { ...item, quantity: item.quantity + 1 } : item
         );
         console.log('[CartContext] Updated existing item, new cart:', newCart);
         return newCart;
@@ -88,14 +88,14 @@ export const CartProvider = ({ children }) => {
 
   // Remove product from cart
   const removeFromCart = (productId) => {
-    setCart((prevCart) => prevCart.filter(item => item.id !== productId));
+    setCart((prevCart) => prevCart.filter(item => item._id !== productId));
   };
 
   // Update quantity
   const updateQuantity = (productId, quantity) => {
     setCart((prevCart) =>
       prevCart.map(item =>
-        item.id === productId ? { ...item, quantity } : item
+        item._id === productId ? { ...item, quantity } : item
       )
     );
   };

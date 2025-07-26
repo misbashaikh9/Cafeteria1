@@ -289,42 +289,32 @@ app.post('/orders', authenticateJWT, async (req, res) => {
     if (!address || !phone) {
       return res.status(400).json({ error: 'Address and phone are required.' });
     }
-    // Save order with static product handling
+    
+    // Instead of saving order immediately, just validate and return order data
+    // The order will be saved only after successful payment
     const orderData = {
       userId,
       items: items.map(item => ({
-        productId: item.productId, // Keep as is for static products
+        productId: item.productId,
         name: item.name,
         price: item.price,
         quantity: item.quantity,
         image: item.image
       })),
       address,
-      phone
+      phone,
+      totalAmount: items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
     };
     
-    const order = new Order(orderData);
-    await order.save();
-    
-    // Log the saved order for debugging
-    console.log('✅ Order saved to database:', {
-      orderId: order._id,
-      userId: order.userId,
-      itemsCount: order.items.length,
-      items: order.items,
-      address: order.address,
-      phone: order.phone,
-      status: order.status,
-      createdAt: order.createdAt
+    // Return order data for payment processing
+    res.status(200).json({ 
+      message: 'Order validated successfully!', 
+      orderData 
     });
-
-    // Send response first
-    res.status(201).json({ message: 'Order placed successfully!', order });
-    // Removed: email sending logic here
   } catch (err) {
-    console.error('❌ Order creation failed:', err);
+    console.error('❌ Order validation failed:', err);
     res.status(500).json({ 
-      error: 'Failed to place order.',
+      error: 'Failed to validate order.',
       details: err.message 
     });
   }
@@ -333,21 +323,59 @@ app.post('/orders', authenticateJWT, async (req, res) => {
 // Save feedback for an order
 app.post('/feedback', authenticateJWT, async (req, res) => {
   try {
-    const userId = req.user.userId;
     const { orderId, rating, comment } = req.body;
+    const userId = req.user.userId; // Changed from req.user.id to req.user.userId
+    
     if (!orderId || !rating) {
       return res.status(400).json({ error: 'Order ID and rating are required.' });
     }
+    
     // Prevent duplicate feedback for the same order/user
     const existing = await Feedback.findOne({ orderId, userId });
     if (existing) {
       return res.status(400).json({ error: 'Feedback already submitted for this order.' });
     }
+    
     const feedback = new Feedback({ orderId, userId, rating, comment });
     await feedback.save();
+
+    // Find all products in this order and update their ratings
+    try {
+      const order = await Order.findById(orderId);
+      if (order && order.items && order.items.length > 0) {
+        for (const item of order.items) {
+          if (item.productId) {
+            // Find all orders containing this product
+            const ordersWithProduct = await Order.find({ 'items.productId': item.productId }).select('_id');
+            const orderIds = ordersWithProduct.map(o => o._id);
+            
+            // Find all feedbacks for these orders
+            const feedbacks = await Feedback.find({ 
+              orderId: { $in: orderIds }, 
+              rating: { $gte: 1 } 
+            });
+            
+            if (feedbacks.length > 0) {
+              const sum = feedbacks.reduce((acc, f) => acc + (f.rating || 0), 0);
+              const averageRating = sum / feedbacks.length;
+              
+              // Update product document
+              await productModel.findByIdAndUpdate(item.productId, {
+                averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal place
+                reviewCount: feedbacks.length
+              });
+            }
+          }
+        }
+      }
+    } catch (updateError) {
+      console.error('Error updating product ratings:', updateError);
+      // Don't fail the feedback submission if rating update fails
+    }
+
     res.status(201).json({ message: 'Feedback submitted!', feedback });
   } catch (err) {
-    console.error(err);
+    console.error('Failed to submit feedback:', err);
     res.status(500).json({ error: 'Failed to submit feedback.' });
   }
 });
@@ -566,10 +594,10 @@ app.post('/create-payment-intent', authenticateJWT, async (req, res) => {
 // Process demo payment
 app.post('/process-payment', authenticateJWT, async (req, res) => {
   try {
-    const { paymentMethodId, amount, orderId, paymentDetails } = req.body;
+    const { paymentMethodId, amount, orderData, paymentDetails } = req.body;
     
-    if (!paymentMethodId || !amount || !orderId) {
-      return res.status(400).json({ error: 'Payment method, amount, and order ID are required.' });
+    if (!paymentMethodId || !amount || !orderData) {
+      return res.status(400).json({ error: 'Payment method, amount, and order data are required.' });
     }
 
     // Validate payment details based on method
@@ -592,31 +620,45 @@ app.post('/process-payment', authenticateJWT, async (req, res) => {
         paymentMethod = 'cash';
       }
 
-      // Update order status based on payment method
-      const update = {
-        paymentMethod: paymentMethod,
-        paymentDetails: paymentMethodId === 'pm_demo_upi' ? {
-          upiId: paymentDetails.upiId,
-          upiName: paymentDetails.upiName
-        } : {}
+      // Create order data with payment information
+      const orderToSave = {
+        ...orderData,
+        payment: {
+          method: paymentMethod,
+          success: true,
+          transactionId: 'txn_' + Math.random().toString(36).substr(2, 9),
+          amount: amount,
+          details: paymentMethodId === 'pm_demo_upi' ? {
+            upiId: paymentDetails.upiId,
+            upiName: paymentDetails.upiName
+          } : {}
+        },
+        status: paymentMethod === 'cash' ? 'pending' : 'paid',
+        paidAt: paymentMethod === 'cash' ? null : new Date()
       };
 
-      if (paymentMethod !== 'cash') {
-        update.status = 'paid';
-        update.paidAt = new Date();
-      } else {
-        update.status = 'pending'; // or 'cash'
-        update.paidAt = null;
-      }
-
-      await Order.findByIdAndUpdate(orderId, update);
+      // Save order to database only after successful payment
+      const order = new Order(orderToSave);
+      await order.save();
+      
+      // Debug: log the whole order object
+      console.log('Order object:', order);
+      
+      console.log('✅ Order saved to database after successful payment:', {
+        orderId: order._id,
+        userId: order.userId,
+        itemsCount: order.items.length,
+        paymentMethod: order.payment ? order.payment.method : null,
+        status: order.status
+      });
 
       res.status(200).json({ 
         success: true,
         message: 'Payment processed successfully!',
-        transactionId: 'txn_' + Math.random().toString(36).substr(2, 9),
+        transactionId: order.payment.transactionId,
         amount: amount,
-        paymentMethod: paymentMethod
+        paymentMethod: paymentMethod,
+        orderId: order._id
       });
     } else {
       res.status(400).json({ 
@@ -626,7 +668,7 @@ app.post('/process-payment', authenticateJWT, async (req, res) => {
       });
     }
   } catch (err) {
-    console.error(err);
+    console.error('❌ Payment processing failed:', err);
     res.status(500).json({ error: 'Payment processing failed.' });
   }
 });
@@ -785,40 +827,6 @@ app.post('/send-order-email', authenticateJWT, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to send order confirmation email.' });
-  }
-});
-
-// Get aggregated ratings for a product
-app.get('/products/:id/ratings', async (req, res) => {
-  try {
-    const productId = req.params.id;
-    // Find all feedbacks for this product (by searching all feedbacks for orders containing this product)
-    // 1. Find all orders that include this product
-    const orders = await Order.find({ 'items.productId': productId }).select('_id');
-    const orderIds = orders.map(o => o._id);
-    if (orderIds.length === 0) {
-      return res.status(200).json({ average: 0, count: 0, reviews: [] });
-    }
-    // 2. Find all feedbacks for these orders
-    const feedbacks = await Feedback.find({ orderId: { $in: orderIds }, rating: { $gte: 1 } }).sort({ createdAt: -1 });
-    if (feedbacks.length === 0) {
-      return res.status(200).json({ average: 0, count: 0, reviews: [] });
-    }
-    // 3. Calculate average rating
-    const sum = feedbacks.reduce((acc, f) => acc + (f.rating || 0), 0);
-    const average = sum / feedbacks.length;
-    // 4. Optionally, return the latest 3 reviews
-    const reviews = feedbacks.slice(0, 3).map(f => ({
-      rating: f.rating,
-      comment: f.comment,
-      createdAt: f.createdAt,
-      userId: f.userId,
-      orderId: f.orderId
-    }));
-    res.status(200).json({ average, count: feedbacks.length, reviews });
-  } catch (err) {
-    console.error('Failed to aggregate product ratings:', err);
-    res.status(500).json({ error: 'Failed to aggregate product ratings.' });
   }
 });
 

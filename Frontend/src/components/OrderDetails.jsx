@@ -38,7 +38,7 @@ const OrderDetails = () => {
   if (error) return <div style={{ textAlign: 'center', color: 'red', fontSize: 18, marginTop: 60 }}>{error}</div>;
   if (!order) return null;
 
-  const { items = [], address = '', phone = '', status = '', paymentMethod = '', createdAt = new Date() } = order;
+  const { items = [], address = '', phone = '', status = '', payment = {}, createdAt = new Date() } = order;
   const total = items.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 0), 0);
   const estDelivery = new Date(new Date(createdAt).getTime() + 40 * 60000);
 
@@ -52,7 +52,7 @@ const OrderDetails = () => {
           <>
             {items.map(item => (
               <div key={item.productId} style={{ display: 'flex', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
-                <img src={item.image} alt={item.name} style={{ width: 48, height: 32, objectFit: 'cover', borderRadius: 6, marginRight: 12 }} />
+                <img src={`http://localhost:3001/images/${item.image}`} alt={item.name} style={{ width: 48, height: 32, objectFit: 'cover', borderRadius: 6, marginRight: 12 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>{item.name} x {item.quantity}</div>
                 <div style={{ fontWeight: 600, color: '#b8860b' }}>₹{item.price * item.quantity}</div>
               </div>
@@ -69,7 +69,7 @@ const OrderDetails = () => {
       </div>
       <div style={{ marginBottom: 18 }}>
         <div><b>Status:</b> {status.charAt(0).toUpperCase() + status.slice(1)}</div>
-        <div><b>Payment Method:</b> {paymentMethod.charAt(0).toUpperCase() + paymentMethod.slice(1)}</div>
+        <div><b>Payment Method:</b> {payment.method ? payment.method.charAt(0).toUpperCase() + payment.method.slice(1) : 'N/A'}</div>
         <div><b>Delivery Address:</b> {address}</div>
         <div><b>Phone:</b> {phone}</div>
         <div><b>Order Date:</b> {new Date(createdAt).toLocaleString()}</div>

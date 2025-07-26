@@ -17,7 +17,7 @@ const Checkout = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [paymentStep, setPaymentStep] = useState('details'); // 'details' or 'payment'
-  const [orderId, setOrderId] = useState(null);
+  const [orderData, setOrderData] = useState(null);
   
   // Payment form state
   const [cardNumber, setCardNumber] = useState('');
@@ -54,7 +54,7 @@ const Checkout = () => {
     setLoading(true);
     try {
       const items = cart.map(item => ({
-        productId: item.productId || item.id, // Use productId if available, else fallback to id
+        productId: item._id, // Use _id for productId
         name: item.name,
         price: item.price,
         quantity: item.quantity,
@@ -73,13 +73,14 @@ const Checkout = () => {
       
       const data = await res.json();
       if (res.ok) {
-        setOrderId(data.order._id);
+        // Store order data for payment processing (order not saved yet)
+        setOrderData(data.orderData);
         setPaymentStep('payment');
       } else {
-        setError(data.error || 'Failed to place order.');
+        setError(data.error || 'Failed to validate order.');
       }
     } catch (err) {
-      setError('Failed to place order. Please check if the server is running.');
+      setError('Failed to validate order. Please check if the server is running.');
     } finally {
       setLoading(false);
     }
@@ -161,7 +162,7 @@ const Checkout = () => {
         body: JSON.stringify({ 
           paymentMethodId: paymentMethod === 'card' ? 'pm_demo_card' : paymentMethod === 'upi' ? 'pm_demo_upi' : 'pm_demo_cash',
           amount: total,
-          orderId: orderId,
+          orderData: orderData,
           paymentDetails: paymentMethod === 'upi' ? { upiId, upiName } : {}
         })
       });
@@ -177,7 +178,7 @@ const Checkout = () => {
               'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
-              orderId: orderId,
+              orderId: data.orderId, // Use the orderId returned from successful payment
               items: cart.map(item => ({
                 name: item.name,
                 price: item.price,
@@ -196,14 +197,14 @@ const Checkout = () => {
         }
 
         // Clear cart and navigate to success
-        cart.forEach(item => removeFromCart(item.id));
+        cart.forEach(item => removeFromCart(item._id));
         navigate('/order-success', { 
           state: { 
             order: { 
-              _id: orderId, 
+              _id: data.orderId, // Use the orderId returned from successful payment
               total: total,
               items: cart.map(item => ({
-                productId: item.id,
+                productId: item._id,
                 name: item.name,
                 price: item.price,
                 quantity: item.quantity,
@@ -262,7 +263,7 @@ const Checkout = () => {
       <div style={{ maxWidth: 700, margin: '0 auto' }}>
         <h2 style={{ color: '#3b2f2f', fontWeight: 600, marginBottom: 18, fontSize: '1.3em' }}>Order Summary</h2>
         {cart.map(item => (
-          <div key={item.id} style={{ display: 'flex', alignItems: 'center', marginBottom: 16, background: '#fff', borderRadius: 10, boxShadow: '0 1px 4px rgba(59,47,47,0.06)', padding: 10, flexWrap: 'wrap' }}>
+          <div key={item._id} style={{ display: 'flex', alignItems: 'center', marginBottom: 16, background: '#fff', borderRadius: 10, boxShadow: '0 1px 4px rgba(59,47,47,0.06)', padding: 10, flexWrap: 'wrap' }}>
             <img src={`http://localhost:3001/images/${item.image}`} alt={item.name} style={{ width: 60, height: 40, objectFit: 'cover', borderRadius: 6, marginRight: 14 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 600 }}>{item.name}</div>

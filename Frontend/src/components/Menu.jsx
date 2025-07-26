@@ -5,6 +5,7 @@ import Swal from 'sweetalert2';
 // import { products, getProductsByCategory, getTopRatedProducts } from '../data/products.js';
 
 const CATEGORY_ALL = 'All';
+const CATEGORY_TOP_RATED = 'Top Rated';
 
 const Menu = () => {
   // All hooks at the top
@@ -17,19 +18,8 @@ const Menu = () => {
     setLoading(true);
     fetch('http://localhost:3001/products')
       .then(res => res.json())
-      .then(async (products) => {
-        // Fetch ratings for each product
-        const productsWithRatings = await Promise.all(products.map(async (product) => {
-          try {
-            const res = await fetch(`http://localhost:3001/products/${product._id}/ratings`);
-            if (!res.ok) return product;
-            const { average, count } = await res.json();
-            return { ...product, rating: average, ratingsCount: count };
-          } catch {
-            return product;
-          }
-        }));
-        setProductsData(productsWithRatings);
+      .then((products) => {
+        setProductsData(products);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -38,13 +28,28 @@ const Menu = () => {
   const { addToCart } = useCart();
 
   // Get unique categories
-  const categories = [CATEGORY_ALL, ...Array.from(new Set(productsData.map(p => p.category)))];
+  const categories = [CATEGORY_ALL, CATEGORY_TOP_RATED, ...Array.from(new Set(productsData.map(p => p.category)))];
 
-  // Top rated products (rating >= 4.5)
-  const topRated = productsData.filter(p => p.rating >= 4.5);
+  // Get all top-rated products across all categories (averageRating >= 4.5)
+  const getAllTopRatedProducts = () => {
+    return productsData.filter(p => (p.averageRating || 0) >= 4.5);
+  };
+
+  // Top rated products (averageRating >= 4.5)
+  const topRated = productsData.filter(p => (p.averageRating || 0) >= 4.5);
 
   // Filtered products by category
-  const filteredProducts = selectedCategory === CATEGORY_ALL ? topRated : productsData.filter(p => p.category === selectedCategory);
+  const getFilteredProducts = () => {
+    if (selectedCategory === CATEGORY_ALL) {
+      return topRated;
+    } else if (selectedCategory === CATEGORY_TOP_RATED) {
+      return getAllTopRatedProducts();
+    } else {
+      return productsData.filter(p => p.category === selectedCategory);
+    }
+  };
+
+  const filteredProducts = getFilteredProducts();
 
   // Group filtered products by category
   const grouped = filteredProducts.reduce((acc, product) => {
@@ -53,9 +58,287 @@ const Menu = () => {
     return acc;
   }, {});
 
+  // Render top-rated products section by category
+  const renderTopRatedSection = (category) => {
+    const topRatedForCategory = productsData.filter(p => p.category === category && (p.averageRating || 0) >= 4.5);
+    if (topRatedForCategory.length === 0) return null;
+    return (
+      <div key={`top-rated-${category}`} style={{ marginBottom: 32 }}>
+        <h2 style={{ 
+          color: '#b8860b', 
+          fontSize: '1.5em', 
+          marginBottom: 16, 
+          textAlign: 'center',
+          fontWeight: 600,
+          borderBottom: '2px solid #b8860b',
+          paddingBottom: 8
+        }}>
+          ⭐ Top Rated {category}
+        </h2>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
+          gap: 20,
+          marginBottom: 24
+        }}>
+          {topRatedForCategory.map(product => (
+            <div key={product._id} className="menu-card" style={{
+              background: '#fff',
+              borderRadius: 12,
+              padding: 16,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              border: '2px solid #b8860b',
+              position: 'relative',
+              cursor: 'pointer'
+            }} onClick={() => setModalProduct(product)}>
+              {product.badge && (
+                <span style={{
+                  position: 'absolute',
+                  top: 8,
+                  right: 8,
+                  background: '#b8860b',
+                  color: '#fff',
+                  padding: '4px 8px',
+                  borderRadius: 12,
+                  fontSize: 12,
+                  fontWeight: 600
+                }}>
+                  {product.badge}
+                </span>
+              )}
+              <img 
+                src={`http://localhost:3001/images/${product.image}`} 
+                alt={product.name} 
+                style={{ 
+                  width: '100%', 
+                  height: 200, 
+                  objectFit: 'cover', 
+                  borderRadius: 8,
+                  marginBottom: 12
+                }}
+              />
+              <h3 style={{ 
+                fontSize: '1.2em', 
+                marginBottom: 8, 
+                color: '#3b2f2f',
+                fontWeight: 600
+              }}>
+                {product.name}
+              </h3>
+              {/* Rating Display */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <span style={{ color: '#FFD700', fontSize: 18 }}>
+                  {'★'.repeat(Math.round(product.averageRating || 0))}
+                  {'☆'.repeat(5 - Math.round(product.averageRating || 0))}
+                </span>
+                <span style={{ color: '#b8860b', fontWeight: 600, fontSize: 14 }}>
+                  {product.averageRating ? product.averageRating.toFixed(1) : '0.0'}
+                </span>
+                {product.reviewCount > 0 && (
+                  <span style={{ color: '#888', fontSize: 13 }}>
+                    ({product.reviewCount} review{product.reviewCount === 1 ? '' : 's'})
+                  </span>
+                )}
+              </div>
+              <p style={{ 
+                color: '#666', 
+                fontSize: 14, 
+                marginBottom: 12,
+                lineHeight: 1.4
+              }}>
+                {product.description}
+              </p>
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                marginBottom: 12
+              }}>
+                <span style={{ 
+                  fontSize: '1.1em', 
+                  fontWeight: 600, 
+                  color: '#b8860b'
+                }}>
+                  ₹{product.price}
+                </span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    addToCart(product);
+                    Swal.fire({
+                      toast: true,
+                      position: 'top-end',
+                      icon: 'success',
+                      title: 'Added to cart!',
+                      showConfirmButton: false,
+                      timer: 1200,
+                      timerProgressBar: true,
+                      background: '#fffbe6',
+                      color: '#3b2f2f',
+                      iconColor: '#b8860b',
+                    });
+                  }}
+                  style={{
+                    background: '#b8860b',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 6,
+                    padding: '8px 16px',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    fontSize: 14
+                  }}
+                >
+                  Add to Cart
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
-
-
+  // Render all top-rated products in one section
+  const renderAllTopRatedSection = () => {
+    const allTopRated = getAllTopRatedProducts();
+    if (allTopRated.length === 0) return null;
+    return (
+      <div style={{ marginBottom: 32 }}>
+        <h2 style={{ 
+          color: '#b8860b', 
+          fontSize: '1.5em', 
+          marginBottom: 16, 
+          textAlign: 'center',
+          fontWeight: 600,
+          borderBottom: '2px solid #b8860b',
+          paddingBottom: 8
+        }}>
+          ⭐ All Top Rated Products
+        </h2>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
+          gap: 20,
+          marginBottom: 24
+        }}>
+          {allTopRated.map(product => (
+            <div key={product._id} className="menu-card" style={{
+              background: '#fff',
+              borderRadius: 12,
+              padding: 16,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              border: '2px solid #b8860b',
+              position: 'relative',
+              cursor: 'pointer'
+            }} onClick={() => setModalProduct(product)}>
+              {product.badge && (
+                <span style={{
+                  position: 'absolute',
+                  top: 8,
+                  right: 8,
+                  background: '#b8860b',
+                  color: '#fff',
+                  padding: '4px 8px',
+                  borderRadius: 12,
+                  fontSize: 12,
+                  fontWeight: 600
+                }}>
+                  {product.badge}
+                </span>
+              )}
+              <img 
+                src={`http://localhost:3001/images/${product.image}`} 
+                alt={product.name} 
+                style={{ 
+                  width: '100%', 
+                  height: 200, 
+                  objectFit: 'cover', 
+                  borderRadius: 8,
+                  marginBottom: 12
+                }}
+              />
+              <h3 style={{ 
+                fontSize: '1.2em', 
+                marginBottom: 8, 
+                color: '#3b2f2f',
+                fontWeight: 600
+              }}>
+                {product.name}
+              </h3>
+              {/* Rating Display */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <span style={{ color: '#FFD700', fontSize: 18 }}>
+                  {'★'.repeat(Math.round(product.averageRating || 0))}
+                  {'☆'.repeat(5 - Math.round(product.averageRating || 0))}
+                </span>
+                <span style={{ color: '#b8860b', fontWeight: 600, fontSize: 14 }}>
+                  {product.averageRating ? product.averageRating.toFixed(1) : '0.0'}
+                </span>
+                {product.reviewCount > 0 && (
+                  <span style={{ color: '#888', fontSize: 13 }}>
+                    ({product.reviewCount} review{product.reviewCount === 1 ? '' : 's'})
+                  </span>
+                )}
+              </div>
+              <p style={{ 
+                color: '#666', 
+                fontSize: 14, 
+                marginBottom: 12,
+                lineHeight: 1.4
+              }}>
+                {product.description}
+              </p>
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                marginBottom: 12
+              }}>
+                <span style={{ 
+                  fontSize: '1.1em', 
+                  fontWeight: 600, 
+                  color: '#b8860b'
+                }}>
+                  ₹{product.price}
+                </span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    addToCart(product);
+                    Swal.fire({
+                      toast: true,
+                      position: 'top-end',
+                      icon: 'success',
+                      title: 'Added to cart!',
+                      showConfirmButton: false,
+                      timer: 1200,
+                      timerProgressBar: true,
+                      background: '#fffbe6',
+                      color: '#3b2f2f',
+                      iconColor: '#b8860b',
+                    });
+                  }}
+                  style={{
+                    background: '#b8860b',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 6,
+                    padding: '8px 16px',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    fontSize: 14
+                  }}
+                >
+                  Add to Cart
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   // Modal JSX
   const renderModal = () => {
@@ -127,7 +410,7 @@ const Menu = () => {
               ))}
             </div>
             {/* Category Sections (only show when a filter is selected) */}
-            {selectedCategory !== CATEGORY_ALL && Object.keys(grouped).map((category) => (
+            {selectedCategory !== CATEGORY_ALL && selectedCategory !== CATEGORY_TOP_RATED && Object.keys(grouped).map((category) => (
               <div key={category} style={{ marginBottom: 32 }}>
                 <h2 className="menu-category" style={{ fontSize: '1.2em', marginBottom: 16 }}>{category}</h2>
                 <div className="menu-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 48, width: '100%' }}>
@@ -161,6 +444,10 @@ const Menu = () => {
                 </div>
               </div>
             ))}
+            {/* Top Rated Products Section - show when "Top Rated" is selected */}
+            {selectedCategory === CATEGORY_TOP_RATED && renderAllTopRatedSection()}
+            {/* Top Rated Products Section - show category-specific top rated */}
+            {selectedCategory === CATEGORY_ALL && Object.keys(grouped).map(category => renderTopRatedSection(category))}
             <style>{`
               @media (max-width: 900px) {
                 .menu-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 32px !important; }

@@ -26,6 +26,16 @@ const productSchema = new mongoose.Schema({
     required: false,
     default: 0
   },
+  averageRating: {
+    type: Number,
+    required: false,
+    default: 0
+  },
+  reviewCount: {
+    type: Number,
+    required: false,
+    default: 0
+  },
   badge: {
     type: String,
     required: false
@@ -41,13 +51,7 @@ const productSchema = new mongoose.Schema({
   allergyInfo: {
     type: String,
     required: false
-  },
-  ratings: [
-    {
-      userId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer', required: true },
-      rating: { type: Number, required: true }
-    }
-  ]
+  }
 });
 
 module.exports = mongoose.model('Product', productSchema); 

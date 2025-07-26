@@ -1,6 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from './AuthContext.jsx';
 
+const getMonthOptions = (orders) => {
+  const months = new Set();
+  orders.forEach(order => {
+    const date = new Date(order.createdAt);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    months.add(key);
+  });
+  return Array.from(months).sort((a, b) => b.localeCompare(a));
+};
+
 const OrderHistory = () => {
   const { token } = useAuth();
   const [orders, setOrders] = useState([]);
@@ -8,7 +18,8 @@ const OrderHistory = () => {
   const [error, setError] = useState('');
   const [expanded, setExpanded] = useState({});
   const [reviews, setReviews] = useState([]);
-  const [feedbackForm, setFeedbackForm] = useState({}); // { [orderId]: { rating, comment, loading, error, success } }
+  const [feedbackForm, setFeedbackForm] = useState({});
+  const [selectedMonth, setSelectedMonth] = useState('all');
 
   useEffect(() => {
     const fetchOrdersAndReviews = async () => {
@@ -40,7 +51,7 @@ const OrderHistory = () => {
   // Helper for status display
   const getStatusDisplay = (order) => {
     const status = order.status;
-    const paymentMethod = order.paymentMethod;
+    const paymentMethod = order.payment && order.payment.method ? order.payment.method : 'cash';
     if (status === 'paid') {
       return { label: '✅ Paid', color: '#2e7d32', bg: '#e8f5e8', border: '#4caf50' };
     }
@@ -50,8 +61,9 @@ const OrderHistory = () => {
     if (status === 'out_for_delivery') {
       return { label: '🚚 Out for Delivery', color: '#ff9800', bg: '#fff8e1', border: '#ffb74d' };
     }
+    // Do not return a badge for delivered orders
     if (status === 'delivered') {
-      return { label: '📦 Delivered', color: '#388e3c', bg: '#e8f5e9', border: '#66bb6a' };
+      return null;
     }
     if (status === 'cancelled') {
       return { label: '❌ Cancelled', color: '#c62828', bg: '#ffebee', border: '#ef9a9a' };
@@ -87,6 +99,18 @@ const OrderHistory = () => {
       if (res.ok) {
         setFeedbackForm(prev => ({ ...prev, [orderId]: { rating: '', comment: '', loading: false, error: '', success: 'Feedback submitted!' } }));
         setReviews(prev => [...prev, data.feedback]);
+        
+        // Refresh top-rated products data to update ratings on menu page
+        try {
+          const topRatedRes = await fetch('http://localhost:3001/products/top-rated');
+          if (topRatedRes.ok) {
+            const topRatedData = await topRatedRes.json();
+            // Store in localStorage so Menu page can access updated data
+            localStorage.setItem('topRatedProducts', JSON.stringify(topRatedData.topRatedByCategory || {}));
+          }
+        } catch (err) {
+          console.log('Could not refresh top-rated products:', err);
+        }
       } else {
         setFeedbackForm(prev => ({ ...prev, [orderId]: { ...prev[orderId], loading: false, error: data.error || 'Failed to submit feedback.' } }));
       }
@@ -98,6 +122,26 @@ const OrderHistory = () => {
   return (
     <div className="menu-container" style={{ maxWidth: 800, margin: '0 auto', padding: 40 }}>
       <h1 style={{ color: '#3b2f2f', fontWeight: 700, marginBottom: 24, fontSize: '2em', textAlign: 'center' }}>Your Orders</h1>
+      <div style={{ marginBottom: 24, textAlign: 'right' }}>
+        <label htmlFor="monthFilter" style={{ marginRight: 8, fontWeight: 500 }}>Filter by Month:</label>
+        <select
+          id="monthFilter"
+          value={selectedMonth}
+          onChange={e => setSelectedMonth(e.target.value)}
+          style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #b8860b', fontSize: 15, background: '#fff', color: '#3b2f2f' }}
+        >
+          <option value="all">All</option>
+          {getMonthOptions(orders).map(monthKey => {
+            const [year, month] = monthKey.split('-');
+            const date = new Date(year, month - 1);
+            return (
+              <option key={monthKey} value={monthKey}>
+                {date.toLocaleString('default', { month: 'long', year: 'numeric' })}
+              </option>
+            );
+          })}
+        </select>
+      </div>
       {loading ? (
         <div style={{ textAlign: 'center', color: '#b8860b', fontSize: 22, marginTop: 60 }}>
           <div className="spinner" style={{ margin: '0 auto 18px', width: 48, height: 48, border: '6px solid #f3e9d2', borderTop: '6px solid #b8860b', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
@@ -115,7 +159,11 @@ const OrderHistory = () => {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-          {orders.map(order => {
+          {(selectedMonth === 'all' ? orders : orders.filter(order => {
+            const date = new Date(order.createdAt);
+            const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            return key === selectedMonth;
+          })).map(order => {
             const total = (order.items || []).reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 0), 0);
             const createdAt = new Date(order.createdAt);
             return (
@@ -136,27 +184,29 @@ const OrderHistory = () => {
                         {createdAt.toLocaleDateString()} {createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
-                    <div className="order-status-btn-row" style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap', minWidth: 0, width: '100%', boxSizing: 'border-box' }}>
+                    <div className="order-status-btn-row" style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap', minWidth: 0, boxSizing: 'border-box', marginRight: 0, justifyContent: 'flex-start' }}>
                       {(() => {
                         const status = getStatusDisplay(order);
                         return (
-                          <div className="order-status-badge" style={{
-                            padding: '6px 16px',
-                            borderRadius: 8,
-                            background: status.bg,
-                            color: status.color,
-                            fontWeight: 600,
-                            fontSize: 15,
-                            border: `1px solid ${status.border}`,
-                            flex: '1 1 0',
-                            minWidth: 120,
-                            maxWidth: '100%',
-                            textAlign: 'center',
-                            boxSizing: 'border-box',
-                            marginRight: 0
-                          }}>
-                            {status.label}
-                          </div>
+                          status ? (
+                            <div className="order-status-badge" style={{
+                              padding: '6px 16px',
+                              borderRadius: 8,
+                              background: status.bg,
+                              color: status.color,
+                              fontWeight: 600,
+                              fontSize: 15,
+                              border: `1px solid ${status.border}`,
+                              flex: '1 1 0',
+                              minWidth: 120,
+                              maxWidth: '100%',
+                              textAlign: 'center',
+                              boxSizing: 'border-box',
+                              marginRight: 0
+                            }}>
+                              {status.label}
+                            </div>
+                          ) : null
                         );
                       })()}
                       <button
@@ -236,58 +286,56 @@ const OrderHistory = () => {
                       <div style={{ textAlign: 'right', fontWeight: 700, color: '#b8860b', fontSize: 17 }}>
                         Total: ₹{total}
                       </div>
-                      {/* Feedback/Review Section */}
-                      {order.status === 'delivered' && (
-                        (() => {
-                          const review = reviews.find(r => r.orderId === order._id);
-                          if (review) {
-                            return (
-                              <div style={{ marginTop: 18, background: '#e8f5e9', borderRadius: 8, padding: 16, border: '1px solid #66bb6a' }}>
-                                <b style={{ color: '#388e3c' }}>Your Feedback:</b><br />
-                                <span style={{ fontSize: 18, color: '#388e3c' }}>{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</span>
-                                <div style={{ marginTop: 6, color: '#333' }}>{review.comment}</div>
-                              </div>
-                            );
-                          }
-                          // Show feedback form if not submitted
-                          const form = feedbackForm[order._id] || {};
+                      {/* Feedback/Review Section - only show in expanded details */}
+                      {(() => {
+                        const review = reviews.find(r => r.orderId === order._id);
+                        if (review) {
                           return (
-                            <div style={{ marginTop: 18, background: '#f8f9fa', borderRadius: 8, padding: 16, border: '1px solid #e0c9a6' }}>
-                              <b style={{ color: '#b8860b' }}>Leave Feedback:</b>
-                              <div style={{ margin: '10px 0' }}>
-                                {[1,2,3,4,5].map(star => (
-                                  <span
-                                    key={star}
-                                    style={{
-                                      fontSize: 22,
-                                      color: (form.rating || 0) >= star ? '#ffc107' : '#ccc',
-                                      cursor: 'pointer',
-                                      marginRight: 2
-                                    }}
-                                    onClick={() => handleFeedbackChange(order._id, 'rating', star)}
-                                  >★</span>
-                                ))}
-                              </div>
-                              <textarea
-                                placeholder="Write your feedback (optional)"
-                                value={form.comment || ''}
-                                onChange={e => handleFeedbackChange(order._id, 'comment', e.target.value)}
-                                rows={2}
-                                style={{ width: '100%', borderRadius: 6, border: '1px solid #e0c9a6', padding: 8, fontSize: 15, marginBottom: 8 }}
-                              />
-                              {form.error && <div style={{ color: 'red', marginBottom: 6 }}>{form.error}</div>}
-                              {form.success && <div style={{ color: 'green', marginBottom: 6 }}>{form.success}</div>}
-                              <button
-                                onClick={() => handleFeedbackSubmit(order._id)}
-                                disabled={form.loading}
-                                style={{ background: '#b8860b', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 22px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}
-                              >
-                                {form.loading ? 'Submitting...' : 'Submit Feedback'}
-                              </button>
+                            <div style={{ marginTop: 18, background: '#fff', borderRadius: 8, padding: 16, border: '1px solid #66bb6a' }}>
+                              <b style={{ color: '#388e3c' }}>Your Feedback:</b><br />
+                              <span style={{ fontSize: 18, color: '#388e3c' }}>{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</span>
+                              <div style={{ marginTop: 6, color: '#333' }}>{review.comment}</div>
                             </div>
                           );
-                        })()
-                      )}
+                        }
+                        // Show feedback form if not submitted
+                        const form = feedbackForm[order._id] || {};
+                        return (
+                          <div style={{ marginTop: 18, background: '#fff', borderRadius: 8, padding: 16, border: '1px solid #e0c9a6' }}>
+                            <b style={{ color: '#b8860b' }}>Leave Feedback:</b>
+                            <div style={{ margin: '10px 0' }}>
+                              {[1,2,3,4,5].map(star => (
+                                <span
+                                  key={star}
+                                  style={{
+                                    fontSize: 22,
+                                    color: (form.rating || 0) >= star ? '#ffc107' : '#ccc',
+                                    cursor: 'pointer',
+                                    marginRight: 2
+                                  }}
+                                  onClick={() => handleFeedbackChange(order._id, 'rating', star)}
+                                >★</span>
+                              ))}
+                            </div>
+                            <textarea
+                              placeholder="Write your feedback (optional)"
+                              value={form.comment || ''}
+                              onChange={e => handleFeedbackChange(order._id, 'comment', e.target.value)}
+                              rows={2}
+                              style={{ width: '100%', borderRadius: 6, border: '1px solid #e0c9a6', padding: 8, fontSize: 15, marginBottom: 8, background: '#fff', color: '#3b2f2f' }}
+                            />
+                            {form.error && <div style={{ color: 'red', marginBottom: 6 }}>{form.error}</div>}
+                            {form.success && <div style={{ color: 'green', marginBottom: 6 }}>{form.success}</div>}
+                            <button
+                              onClick={() => handleFeedbackSubmit(order._id)}
+                              disabled={form.loading}
+                              style={{ background: '#b8860b', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 22px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}
+                            >
+                              {form.loading ? 'Submitting...' : 'Submit Feedback'}
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </>
                   )}
                 </div>

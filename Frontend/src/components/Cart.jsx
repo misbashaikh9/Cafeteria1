@@ -38,16 +38,16 @@ const Cart = () => {
       ) : (
         <div style={{ maxWidth: 700, margin: '0 auto' }}>
           {cart.map(item => (
-            <div key={item.id} style={{ display: 'flex', alignItems: 'center', marginBottom: 24, background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(59,47,47,0.06)', padding: 16 }}>
+            <div key={item._id} style={{ display: 'flex', alignItems: 'center', marginBottom: 24, background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(59,47,47,0.06)', padding: 16 }}>
               <img src={`http://localhost:3001/images/${item.image}`} alt={item.name} style={{ width: 80, height: 60, objectFit: 'cover', borderRadius: 8, marginRight: 18 }} />
               <div style={{ flex: 1 }}>
                 <h3 style={{ margin: 0, fontSize: '1.1em', color: '#3b2f2f' }}>{item.name}</h3>
                 <div style={{ color: '#b8860b', fontWeight: 600 }}>₹{Number(item.price) || 0}</div>
                 <div style={{ marginTop: 8 }}>
-                  <button onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))} style={{ marginRight: 8, padding: '2px 10px' }}>-</button>
+                  <button onClick={() => updateQuantity(item._id, Math.max(1, item.quantity - 1))} style={{ marginRight: 8, padding: '2px 10px' }}>-</button>
                   <span style={{ fontWeight: 600 }}>{item.quantity}</span>
-                  <button onClick={() => updateQuantity(item.id, item.quantity + 1)} style={{ marginLeft: 8, padding: '2px 10px' }}>+</button>
-                  <button onClick={() => removeFromCart(item.id)} style={{ marginLeft: 18, color: '#fff', background: '#ff5858', border: 'none', borderRadius: 6, padding: '4px 14px', cursor: 'pointer' }}>Remove</button>
+                  <button onClick={() => updateQuantity(item._id, item.quantity + 1)} style={{ marginLeft: 8, padding: '2px 10px' }}>+</button>
+                  <button onClick={() => removeFromCart(item._id)} style={{ marginLeft: 18, color: '#fff', background: '#ff5858', border: 'none', borderRadius: 6, padding: '4px 14px', cursor: 'pointer' }}>Remove</button>
                 </div>
               </div>
               <div style={{ fontWeight: 700, color: '#3b2f2f', fontSize: '1.1em', marginLeft: 18 }}>₹{(Number(item.price) || 0) * (Number(item.quantity) || 0)}</div>
