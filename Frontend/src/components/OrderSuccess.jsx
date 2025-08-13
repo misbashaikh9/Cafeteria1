@@ -1,20 +1,15 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useCart } from './CartContext.jsx';
 import { useAuth } from './AuthContext.jsx';
+import Header from './Header.jsx';
 
 const OrderSuccess = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { addToCart } = useCart();
+
   const { token } = useAuth();
   const order = location.state?.order;
   const payment = location.state?.payment;
-  const [showFeedback, setShowFeedback] = useState(false);
-  const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState('');
-  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
-  const [feedbackError, setFeedbackError] = useState('');
   const [emailSent, setEmailSent] = useState(false);
 
   // Personalized thank you
@@ -35,12 +30,15 @@ const OrderSuccess = () => {
 
   // Demo mode: simulate email sending
   React.useEffect(() => {
-    if (!emailSent && payment && payment.success) {
-      // Simulate email sending in demo mode
-      setTimeout(() => {
-        setEmailSent(true);
-        console.log('Demo: Order confirmation email would be sent!');
-      }, 2000);
+    if (!emailSent && payment) {
+      // For cash on delivery, always send email. For card/UPI, only if payment successful
+      if (payment.method === 'cash' || payment.success) {
+        // Simulate email sending in demo mode
+        setTimeout(() => {
+          setEmailSent(true);
+          console.log('Demo: Order confirmation email would be sent!');
+        }, 2000);
+      }
     }
   }, [emailSent, payment]);
 
@@ -49,49 +47,13 @@ const OrderSuccess = () => {
     window.print();
   };
 
-  // Order again
-  const handleOrderAgain = () => {
-    if (items && items.length > 0) {
-      items.forEach(item => {
-        addToCart({
-          id: item.productId,
-          name: item.name,
-          price: item.price,
-          image: item.image
-        });
-      });
-      navigate('/cart');
-    }
-  };
 
-  // Feedback submission (now real API call)
-  const handleFeedbackSubmit = async (e) => {
-    e.preventDefault();
-    setFeedbackError('');
-    if (!rating) {
-      setFeedbackError('Please select a rating.');
-      return;
-    }
-    try {
-      const res = await fetch('http://localhost:3001/feedback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ orderId: _id, rating, comment })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setFeedbackSubmitted(true);
-        setTimeout(() => setShowFeedback(false), 1500);
-      } else {
-        setFeedbackError(data.error || 'Failed to submit feedback.');
-      }
-    } catch (err) {
-      setFeedbackError('Failed to submit feedback.');
-    }
-  };
 
   return (
-    <div className="menu-container" style={{ maxWidth: 700, margin: '0 auto', padding: '40px 8px' }}>
+    <>
+      <Header />
+      <section style={{ backgroundColor: '#faf8f3', minHeight: '100vh' }}>
+        <div className="menu-container" style={{ maxWidth: 600, margin: '0 auto', padding: '40px 12px' }}>
       <div style={{ position: 'relative', zIndex: 2 }}>
         <h1 style={{ color: '#3b2f2f', fontWeight: 700, marginBottom: 18, fontSize: '2em', textAlign: 'center' }}>Thank you, {username.split(' ')[0]}! 🎉</h1>
         <div style={{ color: '#b8860b', fontSize: 18, marginBottom: 18 }}>Order #{_id.slice(-6).toUpperCase()}</div>
@@ -135,83 +97,72 @@ const OrderSuccess = () => {
                   }
                 })()}
               </div>
-              <div><b>Transaction ID:</b> {payment.transactionId}</div>
-              <div><b>Amount Paid:</b> ₹{payment.amount}</div>
+              {payment.method !== 'cash' && payment.transactionId && (
+                <div><b>Transaction ID:</b> {payment.transactionId}</div>
+              )}
+              {payment.method === 'cash' ? (
+                <div><b>Amount to Pay:</b> ₹{payment.amount} <span style={{ color: '#b8860b', fontSize: '0.9em' }}>(Pay on delivery)</span></div>
+              ) : (
+                <div><b>Amount Paid:</b> ₹{payment.amount}</div>
+              )}
             </div>
           )}
         </div>
         {/* Email confirmation status */}
         <div style={{ color: '#388e3c', marginBottom: 18, fontWeight: 500 }} className="order-success-hide-print">
-          {payment && payment.success ? (
-            emailSent ? (
-              <span>✅ Order confirmation email sent to your email!</span>
-            ) : (
-              <span>📧 Sending order confirmation email...</span>
-            )
-          ) : (
-            <span>📧 Order confirmation email will be sent after payment</span>
-          )}
+          {(() => {
+            if (payment.method === 'cash') {
+              // For cash on delivery, always show email sent
+              return emailSent ? (
+                <span>✅ Order confirmation email sent to your email!</span>
+              ) : (
+                <span>📧 Sending order confirmation email...</span>
+              );
+            } else {
+              // For card/UPI, check payment success
+              if (payment.success) {
+                return emailSent ? (
+                  <span>✅ Order confirmation email sent to your email!</span>
+                ) : (
+                  <span>📧 Sending order confirmation email...</span>
+                );
+              } else {
+                return <span>📧 Order confirmation email will be sent after payment</span>;
+              }
+            }
+          })()}
         </div>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 24 }} className="order-success-hide-print">
           <button onClick={handlePrint} style={{ background: '#fff', color: '#b8860b', border: '1px solid #b8860b', borderRadius: 8, padding: '10px 22px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}>
             Print/Download Receipt
           </button>
-          <button onClick={handleOrderAgain} style={{ background: '#b8860b', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 22px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}>
-            Order Again
-          </button>
-          <button onClick={() => setShowFeedback(true)} style={{ background: '#fff', color: '#3b2f2f', border: '1px solid #3b2f2f', borderRadius: 8, padding: '10px 22px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}>
-            Rate Your Order
-          </button>
           <button onClick={() => navigate('/menu')} style={{ background: '#b8860b', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 22px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}>
             Back to Menu
           </button>
         </div>
-        {/* Feedback Modal */}
-        {showFeedback && (
-          <div style={{ position: 'fixed', left: 0, top: 0, width: '100vw', height: '100vh', background: 'rgba(59,47,47,0.18)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <form onSubmit={handleFeedbackSubmit} style={{ background: '#fff', borderRadius: 16, padding: 32, minWidth: 320, boxShadow: '0 2px 12px rgba(59,47,47,0.12)', textAlign: 'center' }}>
-              <h2 style={{ color: '#3b2f2f', fontWeight: 700, marginBottom: 18 }}>Rate Your Order</h2>
-              <div style={{ fontSize: 32, marginBottom: 18 }}>
-                {[1,2,3,4,5].map(star => (
-                  <span key={star} style={{ cursor: 'pointer', color: star <= rating ? '#b8860b' : '#cdbba7' }} onClick={() => setRating(star)}>&#9733;</span>
-                ))}
-              </div>
-              <textarea
-                placeholder="Leave a comment (optional)"
-                value={comment}
-                onChange={e => setComment(e.target.value)}
-                style={{ width: '100%', minHeight: 60, borderRadius: 8, border: '1px solid #b8860b', padding: 10, fontSize: 15, marginBottom: 18, background: '#fff', color: '#3b2f2f', fontWeight: 500 }}
-              />
-              {feedbackError && <div style={{ color: 'red', marginBottom: 12 }}>{feedbackError}</div>}
-              <br />
-              <button type="submit" style={{ background: '#b8860b', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 24px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}>
-                {feedbackSubmitted ? 'Thank you!' : 'Submit Feedback'}
-              </button>
-              <br />
-              <button type="button" onClick={() => setShowFeedback(false)} style={{ background: 'none', color: '#b8860b', border: 'none', marginTop: 12, cursor: 'pointer', fontSize: 15 }}>Close</button>
-            </form>
-          </div>
-        )}
+
+        </div>
+        <style>{`
+          @media (max-width: 900px) {
+            .menu-container { padding: 20px 2px !important; }
+            .menu-title, h1 { font-size: 1.3em !important; }
+          }
+          @media (max-width: 600px) {
+            .menu-container { padding: 8px 12px !important; }
+            .menu-title, h1 { font-size: 1.1em !important; }
+            h2 { font-size: 1em !important; }
+            input, button, textarea { font-size: 15px !important; }
+          }
+          @media (max-width: 480px) {
+            .menu-container { padding: 2px 12px !important; }
+            .menu-title, h1 { font-size: 1em !important; }
+            h2 { font-size: 0.95em !important; }
+            input, button, textarea { font-size: 14px !important; }
+          }
+        `}</style>
       </div>
-      <style>{`
-        @media (max-width: 900px) {
-          .menu-container { padding: 20px 2px !important; }
-          .menu-title, h1 { font-size: 1.3em !important; }
-        }
-        @media (max-width: 600px) {
-          .menu-container { padding: 8px 12px !important; }
-          .menu-title, h1 { font-size: 1.1em !important; }
-          h2 { font-size: 1em !important; }
-          input, button, textarea { font-size: 15px !important; }
-        }
-        @media (max-width: 480px) {
-          .menu-container { padding: 2px 12px !important; }
-          .menu-title, h1 { font-size: 1em !important; }
-          h2 { font-size: 0.95em !important; }
-          input, button, textarea { font-size: 14px !important; }
-        }
-      `}</style>
-    </div>
+    </section>
+    </>
   );
 };
 

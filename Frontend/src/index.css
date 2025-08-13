@@ -26,7 +26,15 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #f7e5c5;
+  background: #faf8f3;
+}
+
+html {
+  background: #faf8f3;
+}
+
+#root {
+  background: #faf8f3;
 }
 
 h1 {

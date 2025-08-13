@@ -8,6 +8,8 @@ const Header = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [username, setUsername] = useState("");
+  const [hoveredLink, setHoveredLink] = useState(null);
+  const [hoveredButton, setHoveredButton] = useState(null);
   const { token, setToken } = useAuth();
 
   useEffect(() => {
@@ -43,79 +45,91 @@ const Header = () => {
 
   const styles = {
     nav: {
-      backgroundColor: '#3b2f2f',
-      color: 'white',
-      padding: '16px 24px',
+      backgroundColor: '#fff',
+      color: '#3b2f2f',
+      padding: '20px 24px',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
       position: 'sticky',
       top: 0,
       zIndex: 1000,
+      borderBottom: '1px solid rgba(184, 134, 11, 0.2)',
+      boxShadow: '0 2px 20px rgba(184, 134, 11, 0.1)',
     },
     brandContainer: {
       display: 'flex',
       alignItems: 'center',
-      gap: '10px',
+      gap: '12px',
       textDecoration: 'none',
     },
     logo: {
-      width: '32px',
-      height: '32px',
-      borderRadius: '6px',
+      width: '36px',
+      height: '36px',
+      borderRadius: '8px',
     },
     brandText: {
-      fontSize: '20px',
+      fontSize: '24px',
       fontWeight: 'bold',
-      color: '#d6a96d',
+      color: '#5d4037',
     },
     links: {
       display: 'flex',
       alignItems: 'center',
-      gap: '24px',
+      gap: '60px',
     },
     link: {
-      color: 'white',
+      color: '#6d4c41',
       textDecoration: 'none',
-      fontSize: '16px',
+      fontSize: '18px',
+      fontWeight: '500',
+      transition: 'all 0.3s ease',
+      position: 'relative',
+      paddingBottom: '4px',
     },
     login: {
-      backgroundColor: '#d6a96d',
-      color: '#3b2f2f',
-      padding: '6px 16px',
-      borderRadius: '9999px',
+      backgroundColor: '#b8860b',
+      color: '#fff',
+      padding: '10px 24px',
+      borderRadius: '50px',
       textDecoration: 'none',
-      fontWeight: '500',
-      fontSize: '14px',
+      fontWeight: '600',
+      fontSize: '16px',
+      transition: 'all 0.3s ease',
+      boxShadow: '0 2px 4px rgba(184, 134, 11, 0.3)',
     },
     user: {
-      fontWeight: 500,
-      color: '#d6a96d',
-      fontSize: '15px',
+      fontWeight: 600,
+      color: '#3b2f2f',
+      fontSize: '17px',
     },
     logoutBtn: {
-      backgroundColor: '#d6a96d',
-      color: '#3b2f2f',
-      padding: '6px 16px',
-      borderRadius: '9999px',
+      backgroundColor: '#b8860b',
+      color: '#fff',
+      padding: '10px 24px',
+      borderRadius: '50px',
       border: 'none',
       cursor: 'pointer',
-      fontSize: '14px',
-      fontWeight: '500',
+      fontSize: '16px',
+      fontWeight: '600',
+      transition: 'all 0.3s ease',
+      boxShadow: '0 2px 4px rgba(184, 134, 11, 0.3)',
     },
     hamburger: {
       background: 'transparent',
       border: 'none',
-      color: '#d6a96d',
-      fontSize: '24px',
+      color: '#5d4037',
+      fontSize: '28px',
       cursor: 'pointer',
     },
     mobileMenu: {
-      backgroundColor: '#4a3a3a',
-      padding: '16px',
+      backgroundColor: '#fff',
+      padding: '20px',
       display: 'flex',
       flexDirection: 'column',
-      gap: '12px',
+      gap: '16px',
+      borderBottom: '1px solid rgba(184, 134, 11, 0.2)',
+      boxShadow: '0 2px 20px rgba(184, 134, 11, 0.1)',
     },
     dropdown: {
       position: 'relative',
@@ -124,26 +138,28 @@ const Header = () => {
     dropdownContent: {
       display: 'none',
       position: 'absolute',
-      backgroundColor: '#fffaf5',
-      minWidth: '140px',
-      boxShadow: '0 2px 8px rgba(59,47,47,0.12)',
-      borderRadius: 8,
+      backgroundColor: '#fff',
+      minWidth: '160px',
+      boxShadow: '0 4px 12px rgba(184, 134, 11, 0.2)',
+      borderRadius: 12,
       zIndex: 1001,
       right: 0,
       marginTop: 8,
+      border: '1px solid rgba(184, 134, 11, 0.2)',
     },
     dropdownContentShow: {
       display: 'block',
     },
     dropdownLink: {
       color: '#3b2f2f',
-      padding: '10px 18px',
+      padding: '14px 20px',
       textDecoration: 'none',
       display: 'block',
-      fontSize: 15,
-      borderBottom: '1px solid #e0c9a6',
+      fontSize: 16,
+      borderBottom: '1px solid rgba(184, 134, 11, 0.1)',
       background: 'none',
       cursor: 'pointer',
+      transition: 'background-color 0.3s ease',
     },
     dropdownLast: {
       borderBottom: 'none',
@@ -178,19 +194,31 @@ const Header = () => {
         >
           <Link to="/orders" style={styles.dropdownLink}>Orders</Link>
           <Link to="/profile" style={styles.dropdownLink}>Profile</Link>
-          <Link to="/my-reviews" style={styles.dropdownLink}>My Reviews</Link>
           <Link to="/settings" style={styles.dropdownLink}>Settings</Link>
           <Link to="/help" style={styles.dropdownLink}>Help</Link>
           <button onClick={handleLogout} style={{ ...styles.dropdownLink, ...styles.dropdownLast, background: 'none', border: 'none', textAlign: 'left' }}>Logout</button>
         </div>
       </div>
     ) : (
-      <Link to="/signin" style={styles.login}>Login</Link>
+      <Link 
+        to="/signin" 
+        style={{
+          ...styles.login,
+          backgroundColor: hoveredButton === 'login' ? '#a88c5f' : '#b8860b',
+          transform: hoveredButton === 'login' ? 'translateY(-1px)' : 'translateY(0)',
+          boxShadow: hoveredButton === 'login' ? '0 4px 8px rgba(184, 134, 11, 0.4)' : '0 2px 4px rgba(184, 134, 11, 0.3)',
+        }}
+        onMouseEnter={() => setHoveredButton('login')}
+        onMouseLeave={() => setHoveredButton(null)}
+      >
+        Login
+      </Link>
     );
   };
 
   return (
     <header>
+
       <nav style={styles.nav}>
         <Link to="/" style={styles.brandContainer}>
           <img
@@ -203,9 +231,69 @@ const Header = () => {
 
         {!isMobile && (
           <div style={styles.links}>
-            <Link to="/" style={styles.link}>Home</Link>
-          <Link to="/menu" style={styles.link}>Menu</Link>
-          <Link to="/about" style={styles.link}>About</Link>
+            <Link 
+              to="/" 
+              style={{
+                ...styles.link,
+                color: hoveredLink === 'home' ? '#b8860b' : '#6d4c41'
+              }}
+              onMouseEnter={() => setHoveredLink('home')}
+              onMouseLeave={() => setHoveredLink(null)}
+            >
+              Home
+              <div style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                width: hoveredLink === 'home' ? '100%' : '0%',
+                height: '3px',
+                backgroundColor: '#b8860b',
+                transition: 'width 0.4s ease',
+                borderRadius: '2px',
+              }} />
+            </Link>
+            <Link 
+              to="/menu" 
+              style={{
+                ...styles.link,
+                color: hoveredLink === 'menu' ? '#b8860b' : '#6d4c41'
+              }}
+              onMouseEnter={() => setHoveredLink('menu')}
+              onMouseLeave={() => setHoveredLink(null)}
+            >
+              Menu
+              <div style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                width: hoveredLink === 'menu' ? '100%' : '0%',
+                height: '3px',
+                backgroundColor: '#b8860b',
+                transition: 'width 0.4s ease',
+                borderRadius: '2px',
+              }} />
+            </Link>
+            <Link 
+              to="/about" 
+              style={{
+                ...styles.link,
+                color: hoveredLink === 'about' ? '#b8860b' : '#6d4c41'
+              }}
+              onMouseEnter={() => setHoveredLink('about')}
+              onMouseLeave={() => setHoveredLink(null)}
+            >
+              About
+              <div style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                width: hoveredLink === 'about' ? '100%' : '0%',
+                height: '3px',
+                backgroundColor: '#b8860b',
+                transition: 'width 0.4s ease',
+                borderRadius: '2px',
+              }} />
+            </Link>
             <Link to="/cart" style={{ ...styles.link, position: 'relative', fontSize: 22, marginLeft: 8 }}>
               🛒
               {cartCount > 0 && (
@@ -232,7 +320,19 @@ const Header = () => {
           {username ? (
             <>
               <span style={styles.user}>Hi, {username.split(" ")[0]}</span>
-              <button onClick={handleLogout} style={styles.logoutBtn}>Logout</button>
+              <button 
+                onClick={handleLogout} 
+                style={{
+                  ...styles.logoutBtn,
+                  backgroundColor: hoveredButton === 'mobileLogout' ? '#a88c5f' : '#b8860b',
+                  transform: hoveredButton === 'mobileLogout' ? 'translateY(-1px)' : 'translateY(0)',
+                  boxShadow: hoveredButton === 'mobileLogout' ? '0 4px 8px rgba(184, 134, 11, 0.4)' : '0 2px 4px rgba(184, 134, 11, 0.3)',
+                }}
+                onMouseEnter={() => setHoveredButton('mobileLogout')}
+                onMouseLeave={() => setHoveredButton(null)}
+              >
+                Logout
+              </button>
             </>
           ) : (
             <Link to="/signin" style={styles.login}>Login</Link>

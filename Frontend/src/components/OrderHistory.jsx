@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from './AuthContext.jsx';
+import Header from './Header.jsx';
 
 const getMonthOptions = (orders) => {
   const months = new Set();
@@ -120,7 +121,10 @@ const OrderHistory = () => {
   };
 
   return (
-    <div className="menu-container" style={{ maxWidth: 800, margin: '0 auto', padding: 40 }}>
+    <>
+      <Header />
+      <section style={{ backgroundColor: '#faf8f3', minHeight: '100vh' }}>
+        <div className="menu-container" style={{ maxWidth: 800, margin: '0 auto', padding: '40px 12px' }}>
       <h1 style={{ color: '#3b2f2f', fontWeight: 700, marginBottom: 24, fontSize: '2em', textAlign: 'center' }}>Your Orders</h1>
       <div style={{ marginBottom: 24, textAlign: 'right' }}>
         <label htmlFor="monthFilter" style={{ marginRight: 8, fontWeight: 500 }}>Filter by Month:</label>
@@ -167,7 +171,30 @@ const OrderHistory = () => {
             const total = (order.items || []).reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 0), 0);
             const createdAt = new Date(order.createdAt);
             return (
-              <div key={order._id} style={{ background: '#fffaf5', borderRadius: 12, boxShadow: '0 1px 6px rgba(59,47,47,0.08)', padding: 24, display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap', boxSizing: 'border-box', overflow: 'visible' }}>
+              <div key={order._id} style={{ 
+                background: '#fffaf5', 
+                borderRadius: 12, 
+                boxShadow: '0 1px 6px rgba(59,47,47,0.08)', 
+                padding: 24, 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 18, 
+                flexWrap: 'wrap', 
+                boxSizing: 'border-box', 
+                overflow: 'visible',
+                transition: 'all 0.3s ease',
+                cursor: 'pointer'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.transform = 'translateY(-4px) scale(1.02)';
+                e.target.style.boxShadow = '0 8px 25px rgba(59,47,47,0.15)';
+                e.target.style.border = '1px solid rgba(184, 134, 11, 0.2)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = 'translateY(0) scale(1)';
+                e.target.style.boxShadow = '0 1px 6px rgba(59,47,47,0.08)';
+                e.target.style.border = '1px solid transparent';
+              }}>
                 {/* Show first product image as order thumbnail */}
                 {order.items && order.items.length > 0 && (
                   <img
@@ -189,23 +216,23 @@ const OrderHistory = () => {
                         const status = getStatusDisplay(order);
                         return (
                           status ? (
-                            <div className="order-status-badge" style={{
-                              padding: '6px 16px',
-                              borderRadius: 8,
-                              background: status.bg,
-                              color: status.color,
-                              fontWeight: 600,
-                              fontSize: 15,
-                              border: `1px solid ${status.border}`,
-                              flex: '1 1 0',
-                              minWidth: 120,
-                              maxWidth: '100%',
-                              textAlign: 'center',
-                              boxSizing: 'border-box',
-                              marginRight: 0
-                            }}>
-                              {status.label}
-                            </div>
+                          <div className="order-status-badge" style={{
+                            padding: '6px 16px',
+                            borderRadius: 8,
+                            background: status.bg,
+                            color: status.color,
+                            fontWeight: 600,
+                            fontSize: 15,
+                            border: `1px solid ${status.border}`,
+                            flex: '1 1 0',
+                            minWidth: 120,
+                            maxWidth: '100%',
+                            textAlign: 'center',
+                            boxSizing: 'border-box',
+                            marginRight: 0
+                          }}>
+                            {status.label}
+                          </div>
                           ) : null
                         );
                       })()}
@@ -288,53 +315,53 @@ const OrderHistory = () => {
                       </div>
                       {/* Feedback/Review Section - only show in expanded details */}
                       {(() => {
-                        const review = reviews.find(r => r.orderId === order._id);
-                        if (review) {
-                          return (
+                          const review = reviews.find(r => r.orderId === order._id);
+                          if (review) {
+                            return (
                             <div style={{ marginTop: 18, background: '#fff', borderRadius: 8, padding: 16, border: '1px solid #66bb6a' }}>
-                              <b style={{ color: '#388e3c' }}>Your Feedback:</b><br />
-                              <span style={{ fontSize: 18, color: '#388e3c' }}>{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</span>
-                              <div style={{ marginTop: 6, color: '#333' }}>{review.comment}</div>
+                                <b style={{ color: '#388e3c' }}>Your Feedback:</b><br />
+                                <span style={{ fontSize: 18, color: '#388e3c' }}>{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</span>
+                                <div style={{ marginTop: 6, color: '#333' }}>{review.comment}</div>
+                              </div>
+                            );
+                          }
+                          // Show feedback form if not submitted
+                          const form = feedbackForm[order._id] || {};
+                          return (
+                          <div style={{ marginTop: 18, background: '#fff', borderRadius: 8, padding: 16, border: '1px solid #e0c9a6' }}>
+                              <b style={{ color: '#b8860b' }}>Leave Feedback:</b>
+                              <div style={{ margin: '10px 0' }}>
+                                {[1,2,3,4,5].map(star => (
+                                  <span
+                                    key={star}
+                                    style={{
+                                      fontSize: 22,
+                                      color: (form.rating || 0) >= star ? '#ffc107' : '#ccc',
+                                      cursor: 'pointer',
+                                      marginRight: 2
+                                    }}
+                                    onClick={() => handleFeedbackChange(order._id, 'rating', star)}
+                                  >★</span>
+                                ))}
+                              </div>
+                              <textarea
+                                placeholder="Write your feedback (optional)"
+                                value={form.comment || ''}
+                                onChange={e => handleFeedbackChange(order._id, 'comment', e.target.value)}
+                                rows={2}
+                              style={{ width: '100%', borderRadius: 6, border: '1px solid #e0c9a6', padding: 8, fontSize: 15, marginBottom: 8, background: '#fff', color: '#3b2f2f' }}
+                              />
+                              {form.error && <div style={{ color: 'red', marginBottom: 6 }}>{form.error}</div>}
+                              {form.success && <div style={{ color: 'green', marginBottom: 6 }}>{form.success}</div>}
+                              <button
+                                onClick={() => handleFeedbackSubmit(order._id)}
+                                disabled={form.loading}
+                                style={{ background: '#b8860b', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 22px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}
+                              >
+                                {form.loading ? 'Submitting...' : 'Submit Feedback'}
+                              </button>
                             </div>
                           );
-                        }
-                        // Show feedback form if not submitted
-                        const form = feedbackForm[order._id] || {};
-                        return (
-                          <div style={{ marginTop: 18, background: '#fff', borderRadius: 8, padding: 16, border: '1px solid #e0c9a6' }}>
-                            <b style={{ color: '#b8860b' }}>Leave Feedback:</b>
-                            <div style={{ margin: '10px 0' }}>
-                              {[1,2,3,4,5].map(star => (
-                                <span
-                                  key={star}
-                                  style={{
-                                    fontSize: 22,
-                                    color: (form.rating || 0) >= star ? '#ffc107' : '#ccc',
-                                    cursor: 'pointer',
-                                    marginRight: 2
-                                  }}
-                                  onClick={() => handleFeedbackChange(order._id, 'rating', star)}
-                                >★</span>
-                              ))}
-                            </div>
-                            <textarea
-                              placeholder="Write your feedback (optional)"
-                              value={form.comment || ''}
-                              onChange={e => handleFeedbackChange(order._id, 'comment', e.target.value)}
-                              rows={2}
-                              style={{ width: '100%', borderRadius: 6, border: '1px solid #e0c9a6', padding: 8, fontSize: 15, marginBottom: 8, background: '#fff', color: '#3b2f2f' }}
-                            />
-                            {form.error && <div style={{ color: 'red', marginBottom: 6 }}>{form.error}</div>}
-                            {form.success && <div style={{ color: 'green', marginBottom: 6 }}>{form.success}</div>}
-                            <button
-                              onClick={() => handleFeedbackSubmit(order._id)}
-                              disabled={form.loading}
-                              style={{ background: '#b8860b', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 22px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}
-                            >
-                              {form.loading ? 'Submitting...' : 'Submit Feedback'}
-                            </button>
-                          </div>
-                        );
                       })()}
                     </>
                   )}
@@ -343,6 +370,7 @@ const OrderHistory = () => {
             );
           })}
         </div>
+      
       )}
       <style>{`
         @media (max-width: 768px) {
@@ -376,7 +404,9 @@ const OrderHistory = () => {
           .order-status-btn-row button { width: 100% !important; min-width: 0 !important; margin-top: 0 !important; }
         }
       `}</style>
-    </div>
+      </div>
+      </section>
+    </>
   );
 };
 

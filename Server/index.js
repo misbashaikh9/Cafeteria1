@@ -13,7 +13,10 @@ const Order = require('./models/Order');
 const nodemailer = require('nodemailer');
 const Customer = require('./models/Customer');
 const Feedback = require('./models/Feedback');
+const Wishlist = require('./models/Wishlist');
 const bcrypt = require('bcryptjs');
+
+
 
 const app = express();
 app.use(express.json());
@@ -70,10 +73,7 @@ function authenticateJWT(req, res, next) {
 }
 
 // 🔌 MongoDB Connection
-mongoose.connect('mongodb://127.0.0.1:27017/Cafeteria', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
+mongoose.connect('mongodb://127.0.0.1:27017/Cafeteria')
 .then(() => console.log("✅ MongoDB connected"))
 .catch((err) => console.error("❌ MongoDB connection error:", err));
 
@@ -158,6 +158,8 @@ app.post('/signin', async (req, res) => {
   }
 });
 
+
+
 // 🛒 Get All Products (Menu Items)
 app.get('/products', async (req, res) => {
   try {
@@ -226,6 +228,87 @@ app.delete('/products/:id/rate', authenticateJWT, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to remove rating' });
+  }
+});
+
+// 💖 WISHLIST ROUTES
+
+// Get user's wishlist
+app.get('/wishlist', authenticateJWT, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const wishlist = await Wishlist.find({ userId }).populate('productId');
+    res.status(200).json(wishlist);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch wishlist' });
+  }
+});
+
+// Add item to wishlist
+app.post('/wishlist', authenticateJWT, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { productId } = req.body;
+
+    if (!productId) {
+      return res.status(400).json({ error: 'Product ID is required' });
+    }
+
+    // Check if product exists
+    const product = await productModel.findById(productId);
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    // Check if already in wishlist
+    const existingWishlistItem = await Wishlist.findOne({ userId, productId });
+    if (existingWishlistItem) {
+      return res.status(409).json({ error: 'Product already in wishlist' });
+    }
+
+    const wishlistItem = await Wishlist.create({ userId, productId });
+    const populatedItem = await Wishlist.findById(wishlistItem._id).populate('productId');
+    
+    res.status(201).json(populatedItem);
+  } catch (err) {
+    console.error(err);
+    if (err.code === 11000) {
+      return res.status(409).json({ error: 'Product already in wishlist' });
+    }
+    res.status(500).json({ error: 'Failed to add to wishlist' });
+  }
+});
+
+// Remove item from wishlist
+app.delete('/wishlist/:productId', authenticateJWT, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { productId } = req.params;
+
+    const deletedItem = await Wishlist.findOneAndDelete({ userId, productId });
+    if (!deletedItem) {
+      return res.status(404).json({ error: 'Wishlist item not found' });
+    }
+
+    res.status(200).json({ message: 'Removed from wishlist' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to remove from wishlist' });
+  }
+});
+
+// Check if product is in user's wishlist
+app.get('/wishlist/check/:productId', authenticateJWT, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { productId } = req.params;
+
+    const wishlistItem = await Wishlist.findOne({ userId, productId });
+    res.status(200).json({ inWishlist: !!wishlistItem });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to check wishlist status' });
   }
 });
 
@@ -491,7 +574,7 @@ app.put('/profile/password', authenticateJWT, async (req, res) => {
     }
 
     if (newPassword.length < 6) {
-      return res.status(400).json({ error: 'New password must be at least 6 characters.' });
+      return res.status(400).json({ error: 'New password must be at lest 6 characters.' });
     }
 
     const user = await Customer.findById(userId);
@@ -629,9 +712,9 @@ app.post('/process-payment', authenticateJWT, async (req, res) => {
           transactionId: 'txn_' + Math.random().toString(36).substr(2, 9),
           amount: amount,
           details: paymentMethodId === 'pm_demo_upi' ? {
-            upiId: paymentDetails.upiId,
-            upiName: paymentDetails.upiName
-          } : {}
+          upiId: paymentDetails.upiId,
+          upiName: paymentDetails.upiName
+        } : {}
         },
         status: paymentMethod === 'cash' ? 'pending' : 'paid',
         paidAt: paymentMethod === 'cash' ? null : new Date()

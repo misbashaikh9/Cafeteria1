@@ -1,21 +1,24 @@
-import Header from './Header';
+import React, { Suspense, lazy } from 'react';
 import Hero from './Hero';
 import InfoSection from './InfoSection';
-import PromoSection from './PromoSection';
-import ProductCards from './ProductCards';
-import Footer from './Footer';
+
+// Lazy load components for better performance
+const PromoSection = lazy(() => import('./PromoSection'));
+const ProductCards = lazy(() => import('./ProductCards'));
+const Footer = lazy(() => import('./Footer'));
 
 const Home = () => {
   return (
     <>
-      <Header />
       <Hero />
       <InfoSection />
-      <PromoSection />
-      <ProductCards />
-      <Footer />
+      <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#b8860b' }}>Loading...</div>}>
+        <PromoSection />
+        <ProductCards />
+        <Footer />
+      </Suspense>
     </>
   );
 };
 
-export default Home;
+export default React.memo(Home);

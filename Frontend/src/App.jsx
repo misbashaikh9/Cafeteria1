@@ -9,10 +9,11 @@ import Checkout from './components/Checkout.jsx';
 import OrderSuccess from './components/OrderSuccess.jsx';
 import OrderHistory from './components/OrderHistory.jsx';
 import Profile from './components/Profile.jsx';
-import MyReviews from './components/MyReviews.jsx';
+
 import Settings from './components/Settings.jsx';
 import Help from './components/Help.jsx';
 import OrderDetails from './components/OrderDetails.jsx';
+
 import {BrowserRouter,Routes,Route} from 'react-router-dom'
 import { CartProvider } from './components/CartContext.jsx';
 import { AuthProvider } from './components/AuthContext.jsx';
@@ -32,6 +33,7 @@ function App() {
     <Routes>
       <Route path="/signup" element={<Signup />} ></Route>
       <Route path="/signin" element={<Signin />} ></Route>
+
       <Route path="/" element={<Home />} ></Route>
             <Route path="/menu" element={<Menu />} ></Route>
             <Route path="/cart" element={<Cart />} ></Route>
@@ -40,7 +42,7 @@ function App() {
             <Route path="/orders" element={<OrderHistory />} ></Route>
             <Route path="/orders/:id" element={<OrderDetails />} ></Route>
             <Route path="/profile" element={<Profile />} ></Route>
-            <Route path="/my-reviews" element={<MyReviews />} ></Route>
+
             <Route path="/settings" element={<Settings />} ></Route>
             <Route path="/help" element={<Help />} ></Route>
       {/* Add other routes here as needed */}

@@ -34,6 +34,18 @@ const customerSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  isEmailVerified: {
+    type: Boolean,
+    default: false
+  },
+  emailVerificationToken: {
+    type: String,
+    default: null
+  },
+  emailVerificationExpires: {
+    type: Date,
+    default: null
+  },
   preferences: {
     emailNotifications: {
       type: Boolean,

@@ -51,6 +51,12 @@ const productSchema = new mongoose.Schema({
   allergyInfo: {
     type: String,
     required: false
+  },
+  preparationTime: {
+    type: String,
+    enum: ['quick', 'regular', 'slow'],
+    default: 'regular',
+    required: false
   }
 });
 

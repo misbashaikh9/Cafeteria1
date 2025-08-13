@@ -23,13 +23,14 @@ const SignIn = () => {
         body: JSON.stringify({ email, password })
       });
       const data = await res.json();
+      
       if (res.ok && data.token) {
         setToken(data.token);
-        localStorage.setItem('username', data.user?.name || 'User');
-        localStorage.setItem('userId', data.user?._id || '');
+        localStorage.setItem('username', data.username || 'User');
+        localStorage.setItem('userId', data.userId || '');
         Swal.fire({
           icon: 'success',
-          title: `Welcome back${data.user?.name ? ', ' + data.user.name : ''} ☕`,
+          title: `Welcome back${data.username ? ', ' + data.username : ''} ☕`,
           text: "You're signed in successfully!",
           timer: 1500,
           showConfirmButton: false,
@@ -49,6 +50,8 @@ const SignIn = () => {
       });
     }
   };
+
+
 
   return (
     <div

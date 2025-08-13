@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './AuthContext.jsx';
+import Header from './Header.jsx';
 
 const eyeOpen = '/menu-images/eye-open.png';
 const eyeClose = '/menu-images/eye-close.png';
@@ -118,7 +119,10 @@ const Settings = () => {
   </div>;
 
   return (
-    <div className="menu-container" style={{ maxWidth: 600, margin: '0 auto', padding: '40px 12px' }}>
+    <>
+      <Header />
+      <section style={{ backgroundColor: '#faf8f3', minHeight: '100vh' }}>
+        <div className="menu-container" style={{ maxWidth: 600, margin: '0 auto', padding: '40px 12px' }}>
       <h1 style={{ color: '#3b2f2f', fontWeight: 700, marginBottom: 24, fontSize: '2em', textAlign: 'center' }}>Settings</h1>
       
       {testMessage && (
@@ -253,14 +257,26 @@ const Settings = () => {
           <button 
             onClick={handleLogout}
             style={{ 
-              background: '#b8860b', 
+              background: 'linear-gradient(90deg, #bfa77a 0%, #a88c5f 100%)', 
               color: '#fff', 
               border: 'none', 
-              borderRadius: 8, 
+              borderRadius: '999px', 
               padding: '12px 24px', 
               fontWeight: 600, 
               fontSize: 15, 
-              cursor: 'pointer'
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(191, 167, 122, 0.13)',
+              transition: 'all 0.18s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.background = 'linear-gradient(90deg, #a88c5f 0%, #bfa77a 100%)';
+              e.target.style.transform = 'translateY(-2px) scale(1.04)';
+              e.target.style.boxShadow = '0 6px 18px rgba(191, 167, 122, 0.18)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = 'linear-gradient(90deg, #bfa77a 0%, #a88c5f 100%)';
+              e.target.style.transform = 'translateY(0) scale(1)';
+              e.target.style.boxShadow = '0 2px 8px rgba(191, 167, 122, 0.13)';
             }}
           >
             Logout
@@ -284,6 +300,8 @@ const Settings = () => {
         }
       `}</style>
     </div>
+    </section>
+    </>
   );
 };
 

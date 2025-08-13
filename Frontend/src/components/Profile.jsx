@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from './AuthContext.jsx';
+import Header from './Header.jsx';
 
 const Profile = () => {
   const { token } = useAuth();
@@ -129,7 +130,10 @@ const Profile = () => {
   </div>;
 
   return (
-    <div className="menu-container" style={{ maxWidth: 500, margin: '0 auto', padding: '40px 12px' }}>
+    <>
+      <Header />
+      <section style={{ backgroundColor: '#faf8f3', minHeight: '100vh' }}>
+        <div className="menu-container" style={{ maxWidth: 500, margin: '0 auto', padding: '40px 12px' }}>
       <div style={{ textAlign: 'center', marginBottom: 28 }}>
         {/* Profile image removed as per user request */}
       </div>
@@ -168,7 +172,29 @@ const Profile = () => {
           {error && <div style={{ color: 'red', marginBottom: 12 }}>{error}</div>}
           <div style={{ display: 'flex', gap: 12, marginTop: 18 }}>
             <button type="submit" className="menu-order-btn" style={{ flex: 1 }}>Save</button>
-            <button type="button" onClick={() => { setEdit(false); setForm(profile); setError(''); setSuccess(''); }} style={{ flex: 1, background: '#fff', color: '#b8860b', border: '1px solid #b8860b', borderRadius: 8, padding: '10px 0', fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+            <button type="button" onClick={() => { setEdit(false); setForm(profile); setError(''); setSuccess(''); }} style={{ 
+              flex: 1, 
+              background: '#fff', 
+              color: '#b8860b', 
+              border: '1px solid #b8860b', 
+              borderRadius: '999px', 
+              padding: '10px 0', 
+              fontWeight: 600, 
+              cursor: 'pointer',
+              transition: 'all 0.18s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.background = '#b8860b';
+              e.target.style.color = '#fff';
+              e.target.style.transform = 'translateY(-2px) scale(1.04)';
+              e.target.style.boxShadow = '0 6px 18px rgba(184, 134, 11, 0.18)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = '#fff';
+              e.target.style.color = '#b8860b';
+              e.target.style.transform = 'translateY(0) scale(1)';
+              e.target.style.boxShadow = 'none';
+            }}>Cancel</button>
           </div>
         </form>
       ) : (
@@ -223,6 +249,8 @@ const Profile = () => {
         }
       `}</style>
     </div>
+    </section>
+    </>
   );
 };
 
