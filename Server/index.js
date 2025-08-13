@@ -438,14 +438,36 @@ app.post('/feedback', authenticateJWT, async (req, res) => {
               rating: { $gte: 1 } 
             });
             
+            // Get the current product to preserve existing fake data
+            const currentProduct = await productModel.findById(item.productId);
+            if (!currentProduct) continue;
+            
+            // Calculate new average by combining existing fake data with new feedback
+            let totalRating = 0;
+            let totalReviews = 0;
+            
+            // Add existing fake rating data (weighted by review count)
+            if (currentProduct.averageRating && currentProduct.reviewCount) {
+              totalRating += (currentProduct.averageRating * currentProduct.reviewCount);
+              totalReviews += currentProduct.reviewCount;
+            }
+            
+            // Add new feedback
             if (feedbacks.length > 0) {
-              const sum = feedbacks.reduce((acc, f) => acc + (f.rating || 0), 0);
-              const averageRating = sum / feedbacks.length;
+              const feedbackSum = feedbacks.reduce((acc, f) => acc + (f.rating || 0), 0);
+              totalRating += feedbackSum;
+              totalReviews += feedbacks.length;
+            }
+            
+            // Calculate new average
+            if (totalReviews > 0) {
+              const newAverageRating = Math.round((totalRating / totalReviews) * 10) / 10;
+              const newReviewCount = totalReviews;
               
               // Update product document
               await productModel.findByIdAndUpdate(item.productId, {
-                averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal place
-                reviewCount: feedbacks.length
+                averageRating: newAverageRating,
+                reviewCount: newReviewCount
               });
             }
           }
@@ -460,6 +482,90 @@ app.post('/feedback', authenticateJWT, async (req, res) => {
   } catch (err) {
     console.error('Failed to submit feedback:', err);
     res.status(500).json({ error: 'Failed to submit feedback.' });
+  }
+});
+
+// Save individual product review
+app.post('/product-review', authenticateJWT, async (req, res) => {
+  try {
+    const { productId, orderId, rating, comment } = req.body;
+    const userId = req.user.userId;
+    
+    if (!productId || !orderId || !rating) {
+      return res.status(400).json({ error: 'Product ID, Order ID, and rating are required.' });
+    }
+    
+    // Check if user has already reviewed this product from this order
+    const existing = await Feedback.findOne({ 
+      orderId, 
+      userId, 
+      productId 
+    });
+    
+    if (existing) {
+      return res.status(400).json({ error: 'You have already reviewed this product from this order.' });
+    }
+    
+    // Create new product review
+    const productReview = new Feedback({ 
+      orderId, 
+      userId, 
+      productId, 
+      rating, 
+      comment 
+    });
+    
+    await productReview.save();
+
+    // Update product's average rating and review count
+    try {
+      // Find all reviews for this product
+      const productReviews = await Feedback.find({ 
+        productId, 
+        rating: { $gte: 1 } 
+      });
+      
+      // Get the current product to preserve existing fake data
+      const currentProduct = await productModel.findById(productId);
+      if (!currentProduct) return;
+      
+      // Calculate new average by combining existing fake data with new reviews
+      let totalRating = 0;
+      let totalReviews = 0;
+      
+      // Add existing fake rating data (weighted by review count)
+      if (currentProduct.averageRating && currentProduct.reviewCount) {
+        totalRating += (currentProduct.averageRating * currentProduct.reviewCount);
+        totalReviews += currentProduct.reviewCount;
+      }
+      
+      // Add new real reviews
+      if (productReviews.length > 0) {
+        const newReviewsSum = productReviews.reduce((acc, r) => acc + (r.rating || 0), 0);
+        totalRating += newReviewsSum;
+        totalReviews += productReviews.length;
+      }
+      
+      // Calculate new average
+      if (totalReviews > 0) {
+        const newAverageRating = Math.round((totalRating / totalReviews) * 10) / 10;
+        const newReviewCount = totalReviews;
+        
+        // Update product document
+        await productModel.findByIdAndUpdate(productId, {
+          averageRating: newAverageRating,
+          reviewCount: newReviewCount
+        });
+      }
+    } catch (updateError) {
+      console.error('Error updating product rating:', updateError);
+      // Don't fail the review submission if rating update fails
+    }
+
+    res.status(201).json({ message: 'Product review submitted!', review: productReview });
+  } catch (err) {
+    console.error('Failed to submit product review:', err);
+    res.status(500).json({ error: 'Failed to submit product review.' });
   }
 });
 
@@ -611,6 +717,37 @@ app.get('/reviews', authenticateJWT, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch reviews.' });
+  }
+});
+
+// Get product reviews
+app.get('/product-reviews/:productId', async (req, res) => {
+  try {
+    const { productId } = req.params;
+    
+    // Get current product info
+    const product = await productModel.findById(productId).select('averageRating reviewCount name');
+    
+    // Get reviews
+    const reviews = await Feedback.find({ 
+      productId, 
+      rating: { $gte: 1 } 
+    })
+    .populate('userId', 'name')
+    .sort({ createdAt: -1 })
+    .limit(10); // Limit to recent 10 reviews
+    
+    res.status(200).json({ 
+      reviews,
+      productInfo: {
+        averageRating: product?.averageRating || 0,
+        reviewCount: product?.reviewCount || 0,
+        name: product?.name || 'Product'
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch product reviews.' });
   }
 });
 

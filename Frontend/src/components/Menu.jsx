@@ -41,8 +41,12 @@ const Menu = () => {
   
   const [calorieRange, setCalorieRange] = useState([0, 1000]);
   const [showFilters, setShowFilters] = useState(false);
-  const [preparationTime, setPreparationTime] = useState('all'); // 'quick', 'slow', 'all'
+  const [preparationTime, setPreparationTime] = useState('all'); // 'quick', 'medium', 'slow', 'all'
+  const [minRating, setMinRating] = useState(0); // Minimum rating filter
   const [modalQuantity, setModalQuantity] = useState(1);
+  
+  // Organization states
+
 
   const { token } = useAuth();
 
@@ -166,6 +170,33 @@ const Menu = () => {
   }, []);
 
   const { addToCart } = useCart();
+
+  // Function to count active filters
+  const getActiveFilterCount = () => {
+    let count = 0;
+    
+    // Check price range
+    if (priceRange[1] < 1000) count++;
+    
+    // Check calorie range
+    if (calorieRange[1] < 1000) count++;
+    
+    // Check dietary filters
+    if (Object.values(dietaryFilters).some(Boolean)) count++;
+    
+    // Check allergy filters
+    if (Object.values(allergyFilters).some(Boolean)) count++;
+    
+    // Check preparation time
+    if (preparationTime !== 'all') count++;
+    
+    // Check rating filter
+    if (minRating > 0) count++;
+    
+    return count;
+  };
+
+
 
   // Wishlist functions
   const toggleWishlist = async (productId) => {
@@ -432,10 +463,18 @@ const Menu = () => {
     }
 
     // Preparation time filter
-    if (preparationTime === 'quick') {
-      filtered = filtered.filter(p => p.preparationTime === 'quick');
-    } else if (preparationTime === 'slow') {
-      filtered = filtered.filter(p => p.preparationTime === 'slow');
+    if (preparationTime !== 'all') {
+      filtered = filtered.filter(p => {
+        const productPrepTime = p.preparationTime || '';
+        const matches = productPrepTime === preparationTime;
+        
+        // Debug logging for slow filter
+        if (preparationTime === 'slow') {
+          console.log(`Product: ${p.name}, PrepTime: "${productPrepTime}", Filter: "${preparationTime}", Matches: ${matches}`);
+        }
+        
+        return matches;
+      });
     }
     // If preparationTime is 'all', no filtering is applied (shows all items including regular)
 
@@ -1247,6 +1286,8 @@ const Menu = () => {
         {isInWishlist(product._id) ? '❤️' : '🤍'}
       </button>
 
+
+
       {product.badge && (
         <span style={styles.productBadge}>{product.badge}</span>
       )}
@@ -1331,6 +1372,8 @@ const Menu = () => {
     </div>
   );
 
+  
+
   const renderModal = () => {
     if (!modalProduct) return null;
 
@@ -1368,13 +1411,54 @@ const Menu = () => {
               }}
             />
             <div style={styles.modalInfo}>
-              <h2 style={styles.modalTitle}>{modalProduct.name}</h2>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <h2 style={styles.modalTitle}>{modalProduct.name}</h2>
+                {modalProduct.badge && (
+                  <span style={{
+                    backgroundColor: '#b8860b',
+                    color: '#fff',
+                    padding: '6px 12px',
+                    borderRadius: '20px',
+                    fontSize: '0.8rem',
+                    fontWeight: '600',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    boxShadow: '0 2px 8px rgba(184, 134, 11, 0.3)'
+                  }}>
+                    {modalProduct.badge}
+                  </span>
+                )}
+              </div>
               <p style={styles.modalDescription}>{modalProduct.description}</p>
               <div style={styles.modalMeta}>
                 <span style={styles.modalPrice}>₹{modalProduct.price}</span>
-                {modalProduct.calories && (
-                  <span style={styles.modalCalories}>{modalProduct.calories} kcal</span>
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {modalProduct.calories && (
+                    <span style={styles.modalCalories}>{modalProduct.calories} kcal</span>
+                  )}
+                  {modalProduct.preparationTime && (
+                    <span style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '4px 8px',
+                      backgroundColor: modalProduct.preparationTime === 'quick' ? '#d4edda' : 
+                                    modalProduct.preparationTime === 'medium' ? '#fff3cd' : '#f8d7da',
+                      color: modalProduct.preparationTime === 'quick' ? '#155724' : 
+                             modalProduct.preparationTime === 'medium' ? '#856404' : '#721c24',
+                      borderRadius: '12px',
+                      fontSize: '0.8rem',
+                      fontWeight: '500'
+                    }}>
+                      <span style={{ fontSize: '0.9rem' }}>
+                        {modalProduct.preparationTime === 'quick' ? '⚡' : 
+                         modalProduct.preparationTime === 'medium' ? '⏱️' : '🕐'}
+                      </span>
+                      {modalProduct.preparationTime === 'quick' ? 'Fast' : 
+                       modalProduct.preparationTime === 'medium' ? 'Medium' : 'Slow'}
+                    </span>
+                  )}
+                </div>
               </div>
               <div style={styles.modalRating}>
                 <span style={styles.stars}>
@@ -1385,6 +1469,136 @@ const Menu = () => {
                   {modalProduct.averageRating || modalProduct.rating || 0} ({modalProduct.reviewCount || 0} reviews)
                 </span>
               </div>
+              
+              {/* Enhanced Product Information */}
+              <div style={{
+                marginBottom: '20px',
+                padding: '16px',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '12px',
+                border: '1px solid #e9ecef',
+              }}>
+                <h4 style={{
+                  color: '#3b2f2f',
+                  fontWeight: '600',
+                  fontSize: '1rem',
+                  marginBottom: '16px',
+                  marginTop: 0,
+                }}>
+                  Product Details
+                </h4>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  {modalProduct.servingSize && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: '#b8860b', fontSize: '1.2rem' }}>🥤</span>
+                      <div>
+                        <div style={{ fontSize: '0.9rem', color: '#666', fontWeight: '500' }}>Serving Size</div>
+                        <div style={{ fontSize: '1rem', color: '#3b2f2f', fontWeight: '600' }}>{modalProduct.servingSize}</div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {modalProduct.calories && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: '#b8860b', fontSize: '1.2rem' }}>🔥</span>
+                      <div>
+                        <div style={{ fontSize: '0.9rem', color: '#666', fontWeight: '500' }}>Calories</div>
+                        <div style={{ fontSize: '1rem', color: '#3b2f2f', fontWeight: '600' }}>{modalProduct.calories} kcal</div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {modalProduct.preparationTime && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: '#b8860b', fontSize: '1.2rem' }}>⏱️</span>
+                      <div>
+                        <div style={{ fontSize: '0.9rem', color: '#666', fontWeight: '500' }}>Prep Time</div>
+                        <div style={{ fontSize: '1rem', color: '#3b2f2f', fontWeight: '600' }}>
+                          {modalProduct.preparationTime === 'quick' ? 'Fast (5-10 min)' : 
+                           modalProduct.preparationTime === 'medium' ? 'Medium (10-15 min)' : 
+                           'Slow (15+ min)'}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {modalProduct.badge && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: '#b8860b', fontSize: '1.2rem' }}>🏆</span>
+                      <div>
+                        <div style={{ fontSize: '0.9rem', color: '#666', fontWeight: '500' }}>Special</div>
+                        <div style={{ fontSize: '1rem', color: '#3b2f2f', fontWeight: '600' }}>{modalProduct.badge}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {modalProduct.allergyInfo && (
+                  <div style={{
+                    padding: '12px',
+                    backgroundColor: '#fff3cd',
+                    borderRadius: '8px',
+                    border: '1px solid #ffeaa7',
+                    marginTop: '12px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <span style={{ color: '#856404', fontSize: '1.1rem' }}>⚠️</span>
+                      <strong style={{ color: '#856404', fontSize: '0.9rem' }}>Allergy Information:</strong>
+                    </div>
+                    <div style={{ color: '#856404', fontSize: '0.9rem' }}>{modalProduct.allergyInfo}</div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Recent Reviews Section */}
+              {modalProduct.reviewCount > 0 && (
+                <div style={{
+                  marginBottom: '20px',
+                  padding: '16px',
+                  backgroundColor: '#f8f9fa',
+                  borderRadius: '12px',
+                  border: '1px solid #e9ecef',
+                }}>
+                  <h4 style={{
+                    color: '#3b2f2f',
+                    fontWeight: '600',
+                    fontSize: '1rem',
+                    marginBottom: '16px',
+                    marginTop: 0,
+                  }}>
+                    Customer Reviews ({modalProduct.reviewCount})
+                  </h4>
+                  <div style={{
+                    maxHeight: '150px',
+                    overflowY: 'auto',
+                    fontSize: '0.9rem',
+                    color: '#495057',
+                  }}>
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px', 
+                      marginBottom: '12px',
+                      padding: '8px 12px',
+                      backgroundColor: '#fff',
+                      borderRadius: '8px',
+                      border: '1px solid #e9ecef'
+                    }}>
+                      <span style={{ color: '#FFD700', fontSize: '1.1rem' }}>
+                        {'★'.repeat(Math.floor(modalProduct.averageRating || modalProduct.rating || 0))}
+                        {'☆'.repeat(5 - Math.floor(modalProduct.averageRating || modalProduct.rating || 0))}
+                      </span>
+                      <span style={{ fontSize: '1rem', color: '#3b2f2f', fontWeight: '600' }}>
+                        {modalProduct.averageRating || modalProduct.rating || 0} out of 5
+                      </span>
+                    </div>
+                    <div style={{ fontStyle: 'italic', color: '#6c757d', textAlign: 'center' }}>
+                      💡 Reviews are displayed in product cards on the main page
+                    </div>
+                  </div>
+                </div>
+              )}
               {modalProduct.allergyInfo && (
                 <div style={styles.modalAllergyInfo}>
                   <strong>Allergy Info:</strong> {modalProduct.allergyInfo}
@@ -1492,6 +1706,94 @@ const Menu = () => {
                   color: '#b8860b',
                 }}>
                   Total: ₹{(modalProduct.price * modalQuantity).toFixed(2)}
+                </div>
+              </div>
+              
+
+
+              {/* Related Products Section */}
+              <div style={{
+                marginBottom: '24px',
+                padding: '16px',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '12px',
+                border: '1px solid #e9ecef',
+              }}>
+                <h4 style={{
+                  color: '#3b2f2f',
+                  fontWeight: '600',
+                  fontSize: '1rem',
+                  marginBottom: '16px',
+                  marginTop: 0,
+                }}>
+                  You Might Also Like
+                </h4>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                  gap: '12px',
+                  maxHeight: '120px',
+                  overflowY: 'auto'
+                }}>
+                  {productsData
+                    .filter(product => 
+                      product.category === modalProduct.category && 
+                      product._id !== modalProduct._id
+                    )
+                    .slice(0, 4)
+                    .map(product => (
+                      <div
+                        key={product._id}
+                        onClick={() => {
+                          setModalProduct(product);
+                          setModalQuantity(1);
+                        }}
+                        style={{
+                          cursor: 'pointer',
+                          padding: '8px',
+                          backgroundColor: '#fff',
+                          borderRadius: '8px',
+                          border: '1px solid #e9ecef',
+                          textAlign: 'center',
+                          transition: 'all 0.2s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.transform = 'translateY(-2px)';
+                          e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.transform = 'translateY(0)';
+                          e.target.style.boxShadow = 'none';
+                        }}
+                      >
+                        <img
+                          src={`http://localhost:3001/images/${product.image}`}
+                          alt={product.name}
+                          style={{
+                            width: '100%',
+                            height: '60px',
+                            objectFit: 'cover',
+                            borderRadius: '6px',
+                            marginBottom: '6px'
+                          }}
+                        />
+                        <div style={{
+                          fontSize: '0.8rem',
+                          color: '#3b2f2f',
+                          fontWeight: '600',
+                          lineHeight: '1.2'
+                        }}>
+                          {product.name}
+                        </div>
+                        <div style={{
+                          fontSize: '0.7rem',
+                          color: '#b8860b',
+                          fontWeight: '600'
+                        }}>
+                          ₹{product.price}
+                        </div>
+                      </div>
+                    ))}
                 </div>
               </div>
               
@@ -1650,6 +1952,19 @@ const Menu = () => {
 
           {/* Search and Filter Section */}
           <div className="search-section" style={styles.searchSection}>
+            
+
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '20px',
+              paddingBottom: '16px',
+              borderBottom: '1px solid rgba(184, 134, 11, 0.1)'
+            }}>
+
+            </div>
+
             <div style={styles.searchRow}>
               <input
                 type="text"
@@ -1687,9 +2002,29 @@ const Menu = () => {
                   fontWeight: '600',
                   transition: 'all 0.3s ease',
                   minWidth: '120px',
+                  position: 'relative',
                 }}
               >
                 {showFilters ? 'Hide Filters' : 'Advanced Filters'}
+                {getActiveFilterCount() > 0 && (
+                  <span style={{
+                    position: 'absolute',
+                    top: '-8px',
+                    right: '-8px',
+                    backgroundColor: '#ff6b6b',
+                    color: '#fff',
+                    borderRadius: '50%',
+                    width: '20px',
+                    height: '20px',
+                    fontSize: '0.7rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: '600',
+                  }}>
+                    {getActiveFilterCount()}
+                  </span>
+                )}
               </button>
             </div>
             
@@ -1702,14 +2037,85 @@ const Menu = () => {
                 borderRadius: '12px',
                 border: '1px solid rgba(184, 134, 11, 0.1)',
               }}>
-                <h3 style={{ 
-                  color: '#3b2f2f', 
+                
+                {/* Debug Info - Remove this after fixing */}
+                <div style={{
                   marginBottom: '16px',
-                  fontSize: '1.2rem',
-                  fontWeight: '700'
+                  padding: '12px',
+                  backgroundColor: '#f8f9fa',
+                  borderRadius: '8px',
+                  border: '1px solid #e9ecef',
+                  fontSize: '0.9rem',
+                  color: '#666'
                 }}>
-                  Advanced Filters
-                </h3>
+                  <strong>Debug Info:</strong> 
+                  Quick: {productsData.filter(p => p.preparationTime === 'quick').length} | 
+                  Medium: {productsData.filter(p => p.preparationTime === 'medium').length} | 
+                  Slow: {productsData.filter(p => p.preparationTime === 'slow').length} |
+                  Undefined: {productsData.filter(p => !p.preparationTime).length}
+                </div>
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  marginBottom: '16px',
+                  paddingBottom: '12px',
+                  borderBottom: '1px solid rgba(184, 134, 11, 0.2)'
+                }}>
+                  <h3 style={{ 
+                    color: '#3b2f2f', 
+                    margin: 0,
+                    fontSize: '1.2rem',
+                    fontWeight: '700'
+                  }}>
+                    Advanced Filters
+                  </h3>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '8px',
+                    fontSize: '0.9rem',
+                    color: '#666'
+                  }}>
+                    <span>Active Filters: {getActiveFilterCount()}</span>
+                    {getActiveFilterCount() > 0 && (
+                      <button
+                        onClick={() => {
+                          setDietaryFilters({
+                            vegetarian: false,
+                            vegan: false,
+                            glutenFree: false,
+                            dairyFree: false,
+                            nutFree: false
+                          });
+                          setAllergyFilters({
+                            milk: false,
+                            eggs: false,
+                            nuts: false,
+                            gluten: false,
+                            soy: false
+                          });
+                          setCalorieRange([0, 1000]);
+                          setPriceRange([0, 1000]);
+                          setPreparationTime('all');
+                          setMinRating(0);
+                        }}
+                        style={{
+                          backgroundColor: '#ff6b6b',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '4px 8px',
+                          cursor: 'pointer',
+                          fontSize: '0.8rem',
+                          fontWeight: '500',
+                        }}
+                      >
+                        Clear All
+                      </button>
+                    )}
+                  </div>
+                </div>
                 
                 {/* Price Range */}
                 <div style={{ marginBottom: '20px' }}>
@@ -1719,22 +2125,29 @@ const Menu = () => {
                     fontWeight: '600',
                     marginBottom: '8px'
                   }}>
-                    Price Range: ₹{priceRange[0]} - ₹{priceRange[1]}
+                    Max Price: ₹{priceRange[1]}
                   </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1000"
-                    value={priceRange[1]}
-                    onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value)])}
-                    style={{
-                      width: '100%',
-                      height: '6px',
-                      borderRadius: '3px',
-                      background: 'linear-gradient(to right, #b8860b, #d6a96d)',
-                      outline: 'none',
-                    }}
-                  />
+                  <div style={{ position: 'relative', marginBottom: '8px' }}>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1000"
+                      value={priceRange[1]}
+                      onChange={(e) => setPriceRange([0, parseInt(e.target.value)])}
+                      style={{
+                        width: '100%',
+                        height: '4px',
+                        borderRadius: '2px',
+                        background: `linear-gradient(to right, #b8860b 0%, #b8860b ${(priceRange[1] / 1000) * 100}%, #e9ecef ${(priceRange[1] / 1000) * 100}%, #e9ecef 100%)`,
+                        outline: 'none',
+                        cursor: 'pointer',
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#666' }}>
+                    <span>₹0</span>
+                    <span>₹{priceRange[1]}</span>
+                  </div>
                 </div>
 
                 {/* Calorie Range */}
@@ -1745,22 +2158,27 @@ const Menu = () => {
                     fontWeight: '600',
                     marginBottom: '8px'
                   }}>
-                    Calorie Range: {calorieRange[0]} - {calorieRange[1]} kcal
+                    Max Calories: {calorieRange[1]} kcal
                   </label>
                   <input
                     type="range"
                     min="0"
                     max="1000"
                     value={calorieRange[1]}
-                    onChange={(e) => setCalorieRange([calorieRange[0], parseInt(e.target.value)])}
+                    onChange={(e) => setCalorieRange([0, parseInt(e.target.value)])}
                     style={{
                       width: '100%',
-                      height: '6px',
-                      borderRadius: '3px',
-                      background: 'linear-gradient(to right, #28a745, #5cb85c)',
+                      height: '4px',
+                      borderRadius: '2px',
+                      background: `linear-gradient(to right, #28a745 0%, #28a745 ${(calorieRange[1] / 1000) * 100}%, #e9ecef ${(calorieRange[1] / 1000) * 100}%, #e9ecef 100%)`,
                       outline: 'none',
+                      cursor: 'pointer',
                     }}
                   />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#666' }}>
+                    <span>0 kcal</span>
+                    <span>{calorieRange[1]} kcal</span>
+                  </div>
                 </div>
 
                 {/* Dietary Filters */}
@@ -1829,6 +2247,50 @@ const Menu = () => {
                   </div>
                 </div>
 
+                {/* Rating Filter */}
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ 
+                    display: 'block', 
+                    color: '#3b2f2f', 
+                    fontWeight: '600',
+                    marginBottom: '8px'
+                  }}>
+                    Minimum Rating
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {[0, 3, 3.5, 4, 4.5].map((rating) => (
+                      <button
+                        key={rating}
+                        onClick={() => setMinRating(rating)}
+                        style={{
+                          backgroundColor: minRating === rating ? '#b8860b' : 'transparent',
+                          color: minRating === rating ? '#fff' : '#b8860b',
+                          border: `2px solid #b8860b`,
+                          borderRadius: '20px',
+                          padding: '6px 12px',
+                          cursor: 'pointer',
+                          fontSize: '0.8rem',
+                          fontWeight: '600',
+                          transition: 'all 0.3s ease',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        {rating === 0 ? 'Any' : (
+                          <>
+                            <span style={{ color: rating === 0 ? '#b8860b' : '#FFD700' }}>
+                              {'★'.repeat(Math.floor(rating))}
+                              {rating % 1 >= 0.5 ? '½' : ''}
+                            </span>
+                            {rating}+
+                          </>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Preparation Time */}
                 <div style={{ marginBottom: '20px' }}>
                   <label style={{ 
@@ -1840,7 +2302,7 @@ const Menu = () => {
                     Preparation Time
                   </label>
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    {['all', 'quick', 'slow'].map((time) => (
+                    {['all', 'quick', 'medium', 'slow'].map((time) => (
                       <button
                         key={time}
                         onClick={() => setPreparationTime(time)}
@@ -1854,9 +2316,47 @@ const Menu = () => {
                           fontSize: '0.8rem',
                           fontWeight: '600',
                           transition: 'all 0.3s ease',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
                         }}
                       >
-                        {time === 'all' ? 'All' : time === 'quick' ? 'Quick (< 5 min)' : 'Slow (> 15 min)'}
+                        {time === 'all' ? 'All' : 
+                         time === 'quick' ? 'Quick' : 
+                         time === 'medium' ? 'Medium' : 'Slow'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Category Quick Filters */}
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ 
+                    display: 'block', 
+                    color: '#3b2f2f', 
+                    fontWeight: '600',
+                    marginBottom: '8px'
+                  }}>
+                    Quick Category Filters
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {['All', 'Coffee', 'Pastries', 'Snacks', 'Beverages', 'Desserts'].map((category) => (
+                      <button
+                        key={category}
+                        onClick={() => setSelectedCategory(category === 'All' ? CATEGORY_ALL : category)}
+                        style={{
+                          backgroundColor: selectedCategory === (category === 'All' ? CATEGORY_ALL : category) ? '#b8860b' : 'transparent',
+                          color: selectedCategory === (category === 'All' ? CATEGORY_ALL : category) ? '#fff' : '#b8860b',
+                          border: `2px solid #b8860b`,
+                          borderRadius: '20px',
+                          padding: '6px 12px',
+                          cursor: 'pointer',
+                          fontSize: '0.8rem',
+                          fontWeight: '600',
+                          transition: 'all 0.3s ease',
+                        }}
+                      >
+                        {category}
                       </button>
                     ))}
                   </div>
@@ -1882,6 +2382,7 @@ const Menu = () => {
                     setCalorieRange([0, 1000]);
                     setPriceRange([0, 1000]);
                     setPreparationTime('all');
+                    setMinRating(0);
                   }}
                   style={{
                     backgroundColor: '#6c757d',
@@ -1901,6 +2402,8 @@ const Menu = () => {
             )}
           </div>
           
+
+
           {/* Wishlist Section - Redesigned */}
           {token && (
             <div className="wishlist-section">

@@ -15,6 +15,8 @@ const ProductCards = ({ products = [], onAddToCart, showcase = null }) => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isVisible, setIsVisible] = useState(false);
   const [hoveredCard, setHoveredCard] = useState(null);
+  const [productReviews, setProductReviews] = useState({});
+  const [loadingReviews, setLoadingReviews] = useState({});
   const showcaseProducts = showcase ? products.slice(0, showcase) : products;
 
   useEffect(() => {
@@ -43,6 +45,30 @@ const ProductCards = ({ products = [], onAddToCart, showcase = null }) => {
       if (element) observer.unobserve(element);
     };
   }, []);
+
+  // Function to fetch product reviews
+  const fetchProductReviews = async (productId) => {
+    if (productReviews[productId] || loadingReviews[productId]) return;
+    
+    setLoadingReviews(prev => ({ ...prev, [productId]: true }));
+    try {
+      const response = await fetch(`http://localhost:3001/product-reviews/${productId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setProductReviews(prev => ({ 
+          ...prev, 
+          [productId]: {
+            reviews: data.reviews || [],
+            productInfo: data.productInfo || {}
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch product reviews:', error);
+    } finally {
+      setLoadingReviews(prev => ({ ...prev, [productId]: false }));
+    }
+  };
 
   const styles = {
     cardsSection: {

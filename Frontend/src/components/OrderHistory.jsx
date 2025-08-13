@@ -120,6 +120,50 @@ const OrderHistory = () => {
     }
   };
 
+  const handleProductReviewSubmit = async (orderId, productId) => {
+    const formKey = `${orderId}_${productId}`;
+    setFeedbackForm(prev => ({ ...prev, [formKey]: { ...prev[formKey], loading: true, error: '', success: '' } }));
+    
+    const { rating, comment } = feedbackForm[formKey] || {};
+    if (!rating) {
+      setFeedbackForm(prev => ({ ...prev, [formKey]: { ...prev[formKey], loading: false, error: 'Please select a rating.' } }));
+      return;
+    }
+    
+    try {
+      const res = await fetch('http://localhost:3001/product-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ orderId, productId, rating, comment })
+      });
+      
+      const data = await res.json();
+      if (res.ok) {
+        setFeedbackForm(prev => ({ ...prev, [formKey]: { ...prev[formKey], loading: false, success: 'Review submitted successfully!' } }));
+        
+        // Refresh reviews
+        const reviewsRes = await fetch('http://localhost:3001/reviews', { headers: { 'Authorization': `Bearer ${token}` } });
+        if (reviewsRes.ok) {
+          const reviewsData = await reviewsRes.json();
+          setReviews(reviewsData.reviews || []);
+        }
+        
+        // Clear form after success
+        setTimeout(() => {
+          setFeedbackForm(prev => {
+            const newForm = { ...prev };
+            delete newForm[formKey];
+            return newForm;
+          });
+        }, 2000);
+      } else {
+        setFeedbackForm(prev => ({ ...prev, [formKey]: { ...prev[formKey], loading: false, error: data.error || 'Failed to submit review.' } }));
+      }
+    } catch (err) {
+      setFeedbackForm(prev => ({ ...prev, [formKey]: { ...prev[formKey], loading: false, error: 'Failed to submit review.' } }));
+    }
+  };
+
   return (
     <>
       <Header />
@@ -313,56 +357,106 @@ const OrderHistory = () => {
                       <div style={{ textAlign: 'right', fontWeight: 700, color: '#b8860b', fontSize: 17 }}>
                         Total: ₹{total}
                       </div>
-                      {/* Feedback/Review Section - only show in expanded details */}
-                      {(() => {
-                          const review = reviews.find(r => r.orderId === order._id);
-                          if (review) {
-                            return (
-                            <div style={{ marginTop: 18, background: '#fff', borderRadius: 8, padding: 16, border: '1px solid #66bb6a' }}>
-                                <b style={{ color: '#388e3c' }}>Your Feedback:</b><br />
-                                <span style={{ fontSize: 18, color: '#388e3c' }}>{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</span>
-                                <div style={{ marginTop: 6, color: '#333' }}>{review.comment}</div>
-                              </div>
-                            );
-                          }
-                          // Show feedback form if not submitted
-                          const form = feedbackForm[order._id] || {};
+                      {/* Individual Product Reviews Section */}
+                      <div style={{ marginTop: 18 }}>
+                        <h4 style={{ color: '#b8860b', marginBottom: 12, fontSize: 16 }}>Product Reviews:</h4>
+                        {order.items.map(item => {
+                          const productReview = reviews.find(r => 
+                            r.orderId === order._id && r.productId === item.productId
+                          );
+                          
                           return (
-                          <div style={{ marginTop: 18, background: '#fff', borderRadius: 8, padding: 16, border: '1px solid #e0c9a6' }}>
-                              <b style={{ color: '#b8860b' }}>Leave Feedback:</b>
-                              <div style={{ margin: '10px 0' }}>
-                                {[1,2,3,4,5].map(star => (
-                                  <span
-                                    key={star}
-                                    style={{
-                                      fontSize: 22,
-                                      color: (form.rating || 0) >= star ? '#ffc107' : '#ccc',
-                                      cursor: 'pointer',
-                                      marginRight: 2
-                                    }}
-                                    onClick={() => handleFeedbackChange(order._id, 'rating', star)}
-                                  >★</span>
-                                ))}
+                            <div key={item.productId} style={{ 
+                              marginBottom: 16, 
+                              padding: 12, 
+                              background: '#fff', 
+                              borderRadius: 8, 
+                              border: '1px solid #e0c9a6' 
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                <img
+                                  src={`http://localhost:3001/images/${item.image}`}
+                                  alt={item.name}
+                                  style={{ width: 32, height: 24, objectFit: 'cover', borderRadius: 4 }}
+                                />
+                                <span style={{ fontWeight: 600, color: '#3b2f2f' }}>{item.name}</span>
                               </div>
-                              <textarea
-                                placeholder="Write your feedback (optional)"
-                                value={form.comment || ''}
-                                onChange={e => handleFeedbackChange(order._id, 'comment', e.target.value)}
-                                rows={2}
-                              style={{ width: '100%', borderRadius: 6, border: '1px solid #e0c9a6', padding: 8, fontSize: 15, marginBottom: 8, background: '#fff', color: '#3b2f2f' }}
-                              />
-                              {form.error && <div style={{ color: 'red', marginBottom: 6 }}>{form.error}</div>}
-                              {form.success && <div style={{ color: 'green', marginBottom: 6 }}>{form.success}</div>}
-                              <button
-                                onClick={() => handleFeedbackSubmit(order._id)}
-                                disabled={form.loading}
-                                style={{ background: '#b8860b', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 22px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}
-                              >
-                                {form.loading ? 'Submitting...' : 'Submit Feedback'}
-                              </button>
+                              
+                              {productReview ? (
+                                // Show existing review
+                                <div style={{ background: '#e8f5e8', borderRadius: 6, padding: 8, border: '1px solid #66bb6a' }}>
+                                  <div style={{ color: '#388e3c', fontSize: 16, marginBottom: 4 }}>
+                                    {'★'.repeat(productReview.rating)}{'☆'.repeat(5 - productReview.rating)}
+                                  </div>
+                                  {productReview.comment && (
+                                    <div style={{ color: '#2e7d32', fontSize: 14 }}>{productReview.comment}</div>
+                                  )}
+                                </div>
+                              ) : (
+                                // Show review form
+                                <div>
+                                  <div style={{ marginBottom: 8 }}>
+                                    {[1,2,3,4,5].map(star => (
+                                      <span
+                                        key={star}
+                                        style={{
+                                          fontSize: 18,
+                                          color: (feedbackForm[`${order._id}_${item.productId}`]?.rating || 0) >= star ? '#ffc107' : '#ccc',
+                                          cursor: 'pointer',
+                                          marginRight: 2
+                                        }}
+                                        onClick={() => handleFeedbackChange(`${order._id}_${item.productId}`, 'rating', star)}
+                                      >★</span>
+                                    ))}
+                                  </div>
+                                  <textarea
+                                    placeholder="Write your review (optional)"
+                                    value={feedbackForm[`${order._id}_${item.productId}`]?.comment || ''}
+                                    onChange={e => handleFeedbackChange(`${order._id}_${item.productId}`, 'comment', e.target.value)}
+                                    rows={2}
+                                    style={{ 
+                                      width: '100%', 
+                                      borderRadius: 6, 
+                                      border: '1px solid #e0c9a6', 
+                                      padding: 6, 
+                                      fontSize: 14, 
+                                      marginBottom: 8, 
+                                      background: '#fff', 
+                                      color: '#3b2f2f' 
+                                    }}
+                                  />
+                                  {feedbackForm[`${order._id}_${item.productId}`]?.error && (
+                                    <div style={{ color: 'red', marginBottom: 6, fontSize: 13 }}>
+                                      {feedbackForm[`${order._id}_${item.productId}`].error}
+                                    </div>
+                                  )}
+                                  {feedbackForm[`${order._id}_${item.productId}`]?.success && (
+                                    <div style={{ color: 'green', marginBottom: 6, fontSize: 13 }}>
+                                      {feedbackForm[`${order._id}_${item.productId}`].success}
+                                    </div>
+                                  )}
+                                  <button
+                                    onClick={() => handleProductReviewSubmit(order._id, item.productId)}
+                                    disabled={feedbackForm[`${order._id}_${item.productId}`]?.loading}
+                                    style={{ 
+                                      background: '#b8860b', 
+                                      color: '#fff', 
+                                      border: 'none', 
+                                      borderRadius: 6, 
+                                      padding: '6px 16px', 
+                                      fontWeight: 600, 
+                                      fontSize: 13, 
+                                      cursor: 'pointer' 
+                                    }}
+                                  >
+                                    {feedbackForm[`${order._id}_${item.productId}`]?.loading ? 'Submitting...' : 'Submit Review'}
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           );
-                      })()}
+                        })}
+                      </div>
                     </>
                   )}
                 </div>
