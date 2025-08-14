@@ -28,6 +28,9 @@ const SignIn = () => {
         setToken(data.token);
         localStorage.setItem('username', data.username || 'User');
         localStorage.setItem('userId', data.userId || '');
+        if (typeof data.isAdmin !== 'undefined') {
+          localStorage.setItem('isAdmin', String(!!data.isAdmin));
+        }
         Swal.fire({
           icon: 'success',
           title: `Welcome back${data.username ? ', ' + data.username : ''} ☕`,

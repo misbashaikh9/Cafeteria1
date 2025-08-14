@@ -72,6 +72,17 @@ function authenticateJWT(req, res, next) {
   });
 }
 
+function requireAdmin(req, res, next) {
+  if (!req.user?.userId) return res.status(401).json({ error: 'Unauthorized' });
+  Customer.findById(req.user.userId)
+    .select('isAdmin')
+    .then(doc => {
+      if (!doc || !doc.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+      next();
+    })
+    .catch(() => res.status(500).json({ error: 'Failed to verify admin' }));
+}
+
 // 🔌 MongoDB Connection
 mongoose.connect('mongodb://127.0.0.1:27017/Cafeteria')
 .then(() => console.log("✅ MongoDB connected"))
@@ -107,6 +118,7 @@ app.post('/signup', async (req, res) => {
       message: "Signup successful",
       username: newUser.name,
       userId: newUser._id,
+      isAdmin: newUser.isAdmin === true,
       token,
     });
 
@@ -149,6 +161,7 @@ app.post('/signin', async (req, res) => {
     return res.status(200).json({
       username: user.name,
       userId: user._id,
+      isAdmin: user.isAdmin === true,
       token,
     });
 
@@ -1047,6 +1060,94 @@ app.post('/send-order-email', authenticateJWT, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to send order confirmation email.' });
+  }
+});
+
+// === Admin Endpoints ===
+// Get basic admin info for current user
+app.get('/admin/me', authenticateJWT, async (req, res) => {
+  try {
+    const me = await Customer.findById(req.user.userId).select('name email isAdmin');
+    if (!me) return res.status(404).json({ error: 'User not found' });
+    res.json({ isAdmin: me.isAdmin === true, name: me.name, email: me.email });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load admin info' });
+  }
+});
+
+// List all users (admin)
+app.get('/admin/users', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    const users = await Customer.find().select('name email isAdmin createdAt');
+    res.json({ users });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Promote/demote admin
+app.put('/admin/users/:id/role', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    const { isAdmin } = req.body;
+    const updated = await Customer.findByIdAndUpdate(req.params.id, { isAdmin: !!isAdmin }, { new: true }).select('name email isAdmin');
+    if (!updated) return res.status(404).json({ error: 'User not found' });
+    res.json({ user: updated });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update user role' });
+  }
+});
+
+// List all orders (admin)
+app.get('/admin/orders', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    const orders = await Order.find().sort({ createdAt: -1 });
+    res.json({ orders });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch orders' });
+  }
+});
+
+// Update order status (admin)
+app.put('/admin/orders/:id/status', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    const { status } = req.body;
+    const allowed = ['pending', 'paid', 'preparing', 'out_for_delivery', 'delivered', 'cancelled'];
+    if (!allowed.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+    const order = await Order.findByIdAndUpdate(req.params.id, { status }, { new: true });
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    res.json({ order });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update order status' });
+  }
+});
+
+// Product CRUD (admin)
+app.post('/admin/products', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    const created = await productModel.create(req.body);
+    res.status(201).json({ product: created });
+  } catch (e) {
+    res.status(400).json({ error: 'Failed to create product', details: e.message });
+  }
+});
+
+app.put('/admin/products/:id', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    const updated = await productModel.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updated) return res.status(404).json({ error: 'Product not found' });
+    res.json({ product: updated });
+  } catch (e) {
+    res.status(400).json({ error: 'Failed to update product', details: e.message });
+  }
+});
+
+app.delete('/admin/products/:id', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    const deleted = await productModel.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'Product not found' });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(400).json({ error: 'Failed to delete product', details: e.message });
   }
 });
 

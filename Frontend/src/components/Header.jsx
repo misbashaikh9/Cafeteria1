@@ -10,7 +10,7 @@ const Header = () => {
   const [username, setUsername] = useState("");
   const [hoveredLink, setHoveredLink] = useState(null);
   const [hoveredButton, setHoveredButton] = useState(null);
-  const { token, setToken } = useAuth();
+  const { token, setToken, isAdmin } = useAuth();
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -196,6 +196,7 @@ const Header = () => {
           <Link to="/profile" style={styles.dropdownLink}>Profile</Link>
           <Link to="/settings" style={styles.dropdownLink}>Settings</Link>
           <Link to="/help" style={styles.dropdownLink}>Help</Link>
+          {isAdmin && <Link to="/admin" style={styles.dropdownLink}>Admin</Link>}
           <button onClick={handleLogout} style={{ ...styles.dropdownLink, ...styles.dropdownLast, background: 'none', border: 'none', textAlign: 'left' }}>Logout</button>
         </div>
       </div>
@@ -300,6 +301,7 @@ const Header = () => {
                 <span style={{ position: 'absolute', top: -8, right: -12, background: '#ff5858', color: '#fff', borderRadius: '50%', fontSize: 13, width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>{cartCount}</span>
               )}
             </Link>
+            {isAdmin && <Link to="/admin" style={styles.link}>Admin</Link>}
             {renderAuth()}
           </div>
         )}
@@ -317,6 +319,7 @@ const Header = () => {
           <Link to="/menu" style={styles.link}>Menu</Link>
           <Link to="/orders" style={styles.link}>Orders</Link>
           <Link to="/about" style={styles.link}>About</Link>
+          {isAdmin && <Link to="/admin" style={styles.link}>Admin</Link>}
           {username ? (
             <>
               <span style={styles.user}>Hi, {username.split(" ")[0]}</span>

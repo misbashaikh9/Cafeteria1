@@ -17,6 +17,11 @@ import OrderDetails from './components/OrderDetails.jsx';
 import {BrowserRouter,Routes,Route} from 'react-router-dom'
 import { CartProvider } from './components/CartContext.jsx';
 import { AuthProvider } from './components/AuthContext.jsx';
+import { useAuth } from './components/AuthContext.jsx';
+import AdminDashboard from './components/AdminDashboard.jsx';
+import AdminProducts from './components/AdminProducts.jsx';
+import AdminOrders from './components/AdminOrders.jsx';
+import AdminUsers from './components/AdminUsers.jsx';
 
 const Placeholder = ({ title }) => (
   <div className="menu-container" style={{ padding: 40, textAlign: 'center' }}>
@@ -24,6 +29,19 @@ const Placeholder = ({ title }) => (
     <p style={{ color: '#b8860b', fontSize: 18 }}>This page is coming soon!</p>
   </div>
 );
+
+function AdminGuard({ children }) {
+  const { isAdmin } = useAuth();
+  if (!isAdmin) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        <h2 style={{ color: '#3b2f2f' }}>Access Denied</h2>
+        <p style={{ color: '#b8860b' }}>You do not have permission to view this page.</p>
+      </div>
+    );
+  }
+  return children;
+}
 
 function App() {
   return (
@@ -45,6 +63,11 @@ function App() {
 
             <Route path="/settings" element={<Settings />} ></Route>
             <Route path="/help" element={<Help />} ></Route>
+
+            <Route path="/admin" element={<AdminGuard><AdminDashboard /></AdminGuard>} />
+            <Route path="/admin/products" element={<AdminGuard><AdminProducts /></AdminGuard>} />
+            <Route path="/admin/orders" element={<AdminGuard><AdminOrders /></AdminGuard>} />
+            <Route path="/admin/users" element={<AdminGuard><AdminUsers /></AdminGuard>} />
       {/* Add other routes here as needed */}
       </Routes>
     </BrowserRouter>

@@ -34,6 +34,10 @@ const customerSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  isAdmin: {
+    type: Boolean,
+    default: false
+  },
   isEmailVerified: {
     type: Boolean,
     default: false
